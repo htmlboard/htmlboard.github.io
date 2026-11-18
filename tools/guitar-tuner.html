@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Guitar Tuner</title>
+<style>
+  :root{
+    --bg:#14110f; --panel:#1f1a17; --line:#3a312b; --ink:#f3ebe1; --dim:#9c8f82;
+    --amber:#f2a541; --green:#5fd38d; --red:#ef6b5b;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Rounded","Segoe UI",sans-serif;
+    -webkit-user-select:none;user-select:none;overflow:hidden}
+  .app{height:100%;display:flex;flex-direction:column;
+    padding:calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 14px)}
+  header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  h1{font-size:17px;font-weight:700;margin:0;letter-spacing:.3px}
+  select,button{font:inherit;color:var(--ink)}
+  select{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font-size:14px;max-width:62vw}
+  .gauge{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0}
+  svg{width:min(92vw,440px);height:auto;overflow:visible}
+  .note{font-size:clamp(64px,22vw,110px);font-weight:800;line-height:1;margin-top:-8px;transition:color .15s}
+  .note sub{font-size:.32em;font-weight:600;color:var(--dim);vertical-align:baseline;margin-left:2px}
+  .readout{font-variant-numeric:tabular-nums;color:var(--dim);font-size:15px;margin-top:6px;height:20px}
+  .status{margin-top:10px;font-size:14px;color:var(--dim);text-align:center;min-height:38px;max-width:420px;line-height:1.35}
+  .strings{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:6px}
+  .str{background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:12px 0 9px;
+    display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;transition:border-color .15s,background .15s}
+  .str b{font-size:20px}
+  .str small{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .str.target{border-color:var(--amber)}
+  .str.tuned{border-color:var(--green);background:#1d2a21}
+  .str.playing{background:#2e241b}
+  .controls{display:flex;gap:8px;margin-top:12px;align-items:center}
+  .main{flex:1;border:none;border-radius:14px;padding:14px;font-size:16px;font-weight:700;background:var(--amber);color:#1b130b}
+  .main.on{background:var(--panel);color:var(--ink);border:1.5px solid var(--line)}
+  .chip{background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:12px 12px;font-size:14px;white-space:nowrap}
+  .chip.on{border-color:var(--amber);color:var(--amber)}
+  .cal{display:flex;align-items:center;gap:6px;justify-content:center;margin-top:10px;color:var(--dim);font-size:13px}
+  .cal button{background:var(--panel);border:1px solid var(--line);border-radius:8px;width:30px;height:28px;font-size:16px}
+  .cal span{min-width:62px;text-align:center;font-variant-numeric:tabular-nums;color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Tuner</h1>
+    <select id="tuning" aria-label="Tuning"></select>
+  </header>
+
+  <div class="gauge">
+    <svg viewBox="-160 -150 320 170" aria-hidden="true">
+      <g id="ticks"></g>
+      <path d="M-14,-139 A140,140 0 0 1 14,-139" stroke="var(--green)" stroke-width="8" fill="none" stroke-linecap="round" opacity=".55"/>
+      <g id="needle" style="transition:transform .09s linear">
+        <line x1="0" y1="8" x2="0" y2="-128" stroke="var(--ink)" stroke-width="3" stroke-linecap="round"/>
+      </g>
+      <circle r="8" fill="var(--ink)"/>
+      <text x="-128" y="14" fill="var(--dim)" font-size="11" text-anchor="middle">♭</text>
+      <text x="128" y="14" fill="var(--dim)" font-size="11" text-anchor="middle">♯</text>
+    </svg>
+    <div class="note" id="note">–</div>
+    <div class="readout" id="readout"></div>
+    <div class="status" id="status">Tap Start to listen, or tap a string to hear its note.</div>
+  </div>
+
+  <div class="strings" id="strings"></div>
+
+  <div class="controls">
+    <button class="main" id="start">Start listening</button>
+    <button class="chip" id="mode" title="Auto picks the closest string; Chromatic shows any note">Auto</button>
+  </div>
+  <div class="cal">
+    A4 =
+    <button id="calDown" aria-label="Lower reference">−</button>
+    <span id="calVal">440 Hz</span>
+    <button id="calUp" aria-label="Raise reference">+</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const NAMES = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
+  // Strings listed low → high, as MIDI note numbers
+  const TUNINGS = {
+    'Standard (EADGBE)':       [40,45,50,55,59,64],
+    'Half step down (E♭)':     [39,44,49,54,58,63],
+    'Drop D (DADGBE)':         [38,45,50,55,59,64],
+    'Drop C (CGCFAD)':         [36,43,48,53,57,62],
+    'DADGAD':                  [38,45,50,55,57,62],
+    'Open G (DGDGBD)':         [38,43,50,55,59,62],
+    'Open D (DADF♯AD)':        [38,45,50,54,57,62],
+    'Bass 4-string (EADG)':    [28,33,38,43],
+    'Ukulele (GCEA)':          [67,60,64,69]
+  };
+
+  // ---------- persistence (guarded) ----------
+  const store = {
+    get(k, d){ try{ const v = localStorage.getItem('tuner.'+k); return v === null ? d : JSON.parse(v); }catch(e){ return d; } },
+    set(k, v){ try{ localStorage.setItem('tuner.'+k, JSON.stringify(v)); }catch(e){} }
+  };
+
+  let a4 = store.get('a4', 440);
+  let tuningName = store.get('tuning', 'Standard (EADGBE)');
+  if (!TUNINGS[tuningName]) tuningName = 'Standard (EADGBE)';
+  let chromatic = store.get('chromatic', false);
+  let lockedIdx = null;          // string the user tapped to lock onto
+  let tunedFlags = [];
+
+  const $ = id => document.getElementById(id);
+  const midiToFreq = m => a4 * Math.pow(2, (m - 69) / 12);
+  const freqToMidi = f => 69 + 12 * Math.log2(f / a4);
+  const noteName = m => NAMES[((m % 12) + 12) % 12];
+  const octave = m => Math.floor(m / 12) - 1;
+
+  // ---------- UI setup ----------
+  const sel = $('tuning');
+  Object.keys(TUNINGS).forEach(n => { const o = document.createElement('option'); o.value = o.textContent = n; sel.appendChild(o); });
+  sel.value = tuningName;
+  sel.onchange = () => { tuningName = sel.value; store.set('tuning', tuningName); lockedIdx = null; buildStrings(); };
+
+  // gauge ticks: -50..+50 cents across ±60°
+  const ticks = $('ticks');
+  for (let c = -50; c <= 50; c += 5) {
+    const a = c / 50 * 60 * Math.PI / 180;
+    const major = c % 25 === 0;
+    const r1 = 140, r2 = major ? 122 : 131;
+    const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    l.setAttribute('x1', Math.sin(a) * r1); l.setAttribute('y1', -Math.cos(a) * r1);
+    l.setAttribute('x2', Math.sin(a) * r2); l.setAttribute('y2', -Math.cos(a) * r2);
+    l.setAttribute('stroke', 'var(--dim)'); l.setAttribute('stroke-width', major ? 2.5 : 1.2);
+    l.setAttribute('stroke-linecap', 'round');
+    ticks.appendChild(l);
+  }
+
+  function buildStrings(){
+    const box = $('strings');
+    const notes = TUNINGS[tuningName];
+    box.style.gridTemplateColumns = `repeat(${notes.length},1fr)`;
+    box.innerHTML = '';
+    tunedFlags = notes.map(() => false);
+    notes.forEach((m, i) => {
+      const b = document.createElement('button');
+      b.className = 'str';
+      b.innerHTML = `<b>${noteName(m)}</b><small>${noteName(m)}${octave(m)}</small>`;
+      b.onclick = () => {
+        lockedIdx = (lockedIdx === i && listening) ? null : i;
+        pluck(midiToFreq(m), b);
+        refreshStrings();
+        if (!listening) setStatus(`${noteName(m)}${octave(m)} · ${midiToFreq(m).toFixed(1)} Hz`);
+      };
+      box.appendChild(b);
+    });
+    refreshStrings();
+  }
+  function refreshStrings(){
+    [...$('strings').children].forEach((b, i) => {
+      b.classList.toggle('target', lockedIdx === i);
+      b.classList.toggle('tuned', !!tunedFlags[i]);
+    });
+  }
+
+  const modeBtn = $('mode');
+  function paintMode(){ modeBtn.textContent = chromatic ? 'Chromatic' : 'Auto'; modeBtn.classList.toggle('on', chromatic); }
+  modeBtn.onclick = () => { chromatic = !chromatic; store.set('chromatic', chromatic); lockedIdx = null; paintMode(); refreshStrings(); };
+  paintMode();
+
+  function paintCal(){ $('calVal').textContent = a4 + ' Hz'; }
+  $('calDown').onclick = () => { a4 = Math.max(430, a4 - 1); store.set('a4', a4); paintCal(); buildStrings(); };
+  $('calUp').onclick   = () => { a4 = Math.min(450, a4 + 1); store.set('a4', a4); paintCal(); buildStrings(); };
+  paintCal();
+
+  const setStatus = t => { $('status').textContent = t; };
+
+  // ---------- audio ----------
+  let ctx = null;
+  function audio(){
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+
+  // Karplus-Strong plucked string reference tone
+  function pluck(freq, btn){
+    const ac = audio();
+    const sr = ac.sampleRate, dur = 2.6, len = Math.floor(sr * dur);
+    const buf = ac.createBuffer(1, len, sr), d = buf.getChannelData(0);
+    const N = Math.max(2, Math.round(sr / freq));
+    const ring = new Float32Array(N);
+    for (let i = 0; i < N; i++) ring[i] = Math.random() * 2 - 1;
+    let p = 0;
+    for (let i = 0; i < len; i++) {
+      const nx = (p + 1) % N;
+      const v = ring[p];
+      ring[p] = 0.996 * 0.5 * (ring[p] + ring[nx]);
+      d[i] = v;
+      p = nx;
+    }
+    // fix tuning drift from integer delay with playbackRate
+    const src = ac.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = freq * (N + 0.5) / sr;   // KS loop period is N + 0.5 samples
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.6, ac.currentTime + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + dur);
+    src.connect(g).connect(ac.destination);
+    src.start();
+    if (btn) { btn.classList.add('playing'); setTimeout(() => btn.classList.remove('playing'), 600); }
+  }
+
+  // YIN pitch detection
+  function detectPitch(buf, sr){
+    let rms = 0;
+    for (let i = 0; i < buf.length; i++) rms += buf[i] * buf[i];
+    rms = Math.sqrt(rms / buf.length);
+    if (rms < 0.008) return { f: -1, rms };
+
+    const W = Math.floor(buf.length / 2);
+    const tauMin = Math.floor(sr / 1100), tauMax = Math.min(W, Math.floor(sr / 38));
+    const d = new Float32Array(tauMax + 1);
+    for (let tau = 1; tau <= tauMax; tau++) {
+      let s = 0;
+      for (let j = 0; j < W; j++) { const x = buf[j] - buf[j + tau]; s += x * x; }
+      d[tau] = s;
+    }
+    // cumulative mean normalized difference
+    d[0] = 1; let run = 0;
+    for (let tau = 1; tau <= tauMax; tau++) { run += d[tau]; d[tau] = d[tau] * tau / (run || 1); }
+
+    const TH = 0.12;
+    let tau = -1;
+    for (let t = Math.max(2, tauMin); t < tauMax; t++) {
+      if (d[t] < TH) { while (t + 1 < tauMax && d[t + 1] < d[t]) t++; tau = t; break; }
+    }
+    if (tau < 0) return { f: -1, rms };
+    // parabolic interpolation
+    const a = d[tau - 1], b = d[tau], c = d[tau + 1];
+    const den = a + c - 2 * b;
+    const shift = den ? 0.5 * (a - c) / den : 0;
+    return { f: sr / (tau + shift), rms, clarity: 1 - b };
+  }
+
+  let listening = false, analyser = null, stream = null, raf = 0, data = null;
+  const history = [];
+  let inTuneSince = 0, lastShown = 0;
+
+  async function start(){
+    const ac = audio();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setStatus("Microphone isn't available here. You can still tap a string to tune by ear.");
+      return;
+    }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+      });
+    } catch (e) {
+      setStatus(e && e.name === 'NotAllowedError'
+        ? 'Microphone permission was denied. Tap a string to tune by ear instead.'
+        : "Couldn't open the microphone (" + (e && e.name || 'error') + '). Tap a string to tune by ear.');
+      return;
+    }
+    const srcNode = ac.createMediaStreamSource(stream);
+    const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 30;
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass';  lp.frequency.value = 1400;
+    analyser = ac.createAnalyser(); analyser.fftSize = 4096;
+    srcNode.connect(hp).connect(lp).connect(analyser);
+    data = new Float32Array(analyser.fftSize);
+    listening = true;
+    $('start').textContent = 'Stop'; $('start').classList.add('on');
+    setStatus('Play one string at a time.');
+    loop();
+  }
+  function stop(){
+    listening = false;
+    cancelAnimationFrame(raf);
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    stream = null; analyser = null;
+    $('start').textContent = 'Start listening'; $('start').classList.remove('on');
+    showIdle();
+    setStatus('Tap Start to listen, or tap a string to hear its note.');
+  }
+  $('start').onclick = () => listening ? stop() : start();
+
+  function showIdle(){
+    $('note').textContent = '–'; $('note').style.color = 'var(--ink)';
+    $('readout').textContent = '';
+    $('needle').style.transform = 'rotate(0deg)';
+  }
+
+  let frame = 0;
+  function loop(){
+    raf = requestAnimationFrame(loop);
+    if (++frame % 2) return;                 // ~30 detections/sec
+    analyser.getFloatTimeDomainData(data);
+    const { f } = detectPitch(data, ctx.sampleRate);
+    const now = performance.now();
+    if (f <= 0) {
+      history.length = 0;
+      if (now - lastShown > 900) showIdle();
+      return;
+    }
+    history.push(f); if (history.length > 5) history.shift();
+    const sorted = [...history].sort((x, y) => x - y);
+    const freq = sorted[sorted.length >> 1];
+    lastShown = now;
+    render(freq, now);
+  }
+
+  function render(freq, now){
+    const notes = TUNINGS[tuningName];
+    let targetMidi, idx = -1;
+    if (lockedIdx !== null && !chromatic) {
+      idx = lockedIdx; targetMidi = notes[idx];
+    } else if (chromatic) {
+      targetMidi = Math.round(freqToMidi(freq));
+    } else {
+      const m = freqToMidi(freq);
+      let best = Infinity;
+      notes.forEach((n, i) => { const dd = Math.abs(n - m); if (dd < best) { best = dd; idx = i; } });
+      targetMidi = notes[idx];
+    }
+    let cents = 1200 * Math.log2(freq / midiToFreq(targetMidi));
+    const shown = Math.max(-50, Math.min(50, cents));
+    $('needle').style.transform = `rotate(${shown / 50 * 60}deg)`;
+    $('note').innerHTML = `${noteName(targetMidi)}<sub>${octave(targetMidi)}</sub>`;
+    const sign = cents > 0 ? '+' : '';
+    $('readout').textContent = `${freq.toFixed(1)} Hz · ${sign}${Math.round(cents)}¢`;
+
+    const ok = Math.abs(cents) <= 4;
+    $('note').style.color = ok ? 'var(--green)' : (Math.abs(cents) > 20 ? 'var(--red)' : 'var(--amber)');
+
+    if (Math.abs(cents) > 60) setStatus(cents < 0 ? 'Way flat — tighten' : 'Way sharp — loosen');
+    else if (ok) setStatus('In tune');
+    else setStatus(cents < 0 ? 'Flat — tighten a little' : 'Sharp — loosen a little');
+
+    if (ok) {
+      if (!inTuneSince) inTuneSince = now;
+      if (now - inTuneSince > 600 && idx >= 0 && !tunedFlags[idx]) {
+        tunedFlags[idx] = true; refreshStrings();
+        try { window.host && window.host.haptic && window.host.haptic('success'); } catch (e) {}
+      }
+    } else inTuneSince = 0;
+  }
+
+  document.addEventListener('visibilitychange', () => { if (document.hidden && listening) stop(); });
+
+  buildStrings();
+})();
+</script>
+</body>
+</html>

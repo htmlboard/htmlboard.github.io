@@ -1,0 +1,2302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="htmlboard-icon" content="🎧">
+<meta name="color-scheme" content="dark">
+<title>MP3 Player</title>
+<style>
+:root{
+  --bg:#0b0b0d;--body1:#2b2c31;--body2:#151619;--wheel1:#303137;--wheel2:#1a1b1f;--center1:#3b3c43;--center2:#232429;
+  --label:#b7bec7;--labelOn:#ffffff;
+  --screen:#0f1317;--fg:#e9eef4;--dim:#8b97a4;--bar1:#232a31;--bar2:#161b20;--hi1:#3b8eff;--hi2:#1d5fd2;--hifg:#ffffff;
+  --prog:#26303a;--art1:#2a3440;--art2:#151a20;--artfg:#4c5a68;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--body2);color:var(--fg);
+  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Helvetica,Arial,sans-serif;
+  -webkit-user-select:none;user-select:none;overflow:hidden;overscroll-behavior:none;-webkit-touch-callout:none}
+body{padding:0}
+/* The body fills the whole phone screen. Safe-area padding keeps content clear of the notch, home bar and left-edge swipe. */
+.deck{--wsz:min(68vw,33svh,330px);position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;gap:14px;
+  /* clear the phone's rounded screen corners even when the host reports no safe area */
+  padding:max(calc(env(safe-area-inset-top) + 14px),52px) calc(env(safe-area-inset-right) + 20px)
+          max(calc(env(safe-area-inset-bottom) + 12px),30px) calc(env(safe-area-inset-left) + 20px);
+  background:repeating-linear-gradient(90deg,rgba(255,255,255,.022) 0 1px,transparent 1px 3px),
+             linear-gradient(170deg,var(--body1),var(--body2))}
+/* ----- the screen window: a recessed bezel with screws ----- */
+.window{position:relative;width:100%;max-width:560px;flex:1 1 auto;min-height:230px;max-height:520px;display:flex}
+.screw{position:absolute;width:9px;height:9px;border-radius:50%;
+  background:radial-gradient(circle at 40% 35%,#9aa0a7,#4a4e54 70%);box-shadow:0 1px 1px rgba(0,0,0,.6)}
+.screw::after{content:"";position:absolute;left:1px;right:1px;top:4px;height:1px;background:rgba(0,0,0,.55);transform:rotate(35deg)}
+.screw.a{left:3px;top:3px}.screw.b{right:3px;top:3px}.screw.c{left:3px;bottom:3px}.screw.d{right:3px;bottom:3px}
+.screen{width:100%;flex:1 1 auto;min-height:0;background:var(--screen);color:var(--fg);
+  border:2px solid #000;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.35);
+  display:flex;flex-direction:column;overflow:hidden;position:relative;container-type:inline-size;isolation:isolate;
+  /* WebKit: rounded corners don't clip layered children (album art, shadows) without a mask */
+  -webkit-mask-image:-webkit-radial-gradient(white,black);mask-image:radial-gradient(white,black)}
+.screen::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:30;
+  background:linear-gradient(155deg,rgba(255,255,255,.07),transparent 38%)}
+/* ----- printed label strip ----- */
+.strip{display:flex;align-items:center;gap:10px;width:100%;max-width:560px;flex:0 0 auto;
+  font:700 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.24em;color:var(--label);opacity:.85}
+.strip .rule{flex:1;height:1px;background:var(--label);opacity:.3}
+.led{width:7px;height:7px;border-radius:50%;background:#3b1410;box-shadow:inset 0 1px 1px rgba(0,0,0,.6);transition:background .2s,box-shadow .2s}
+.led.on{background:#ff5a33;box-shadow:0 0 6px #ff5a33,0 0 12px rgba(255,90,51,.6)}
+.bar{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:clamp(3px,2cqw,7px) 10px;font-size:clamp(11px,4.2cqw,14px);font-weight:600;
+  background:linear-gradient(var(--bar1),var(--bar2));border-bottom:1px solid rgba(0,0,0,.35)}
+.bar .t{flex:1;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .ind{min-width:22px;font-size:11px;color:var(--hi1);white-space:nowrap}
+.bar svg{display:block}
+.body{flex:1;position:relative;overflow:hidden}
+.list{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.row{display:flex;align-items:center;gap:8px;padding:6px 12px;min-height:clamp(28px,13cqw,46px);border-bottom:1px solid rgba(127,127,127,.12);cursor:pointer}
+.row .txt{flex:1;min-width:0}
+.row .l{font-size:clamp(12px,5.2cqw,17px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .s{font-size:clamp(9px,3.6cqw,12px);color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.row .r{color:var(--dim);font-size:15px;flex:0 0 auto}
+.row.sel{background:linear-gradient(var(--hi1),var(--hi2));color:var(--hifg)}
+.row.sel .s,.row.sel .r{color:var(--hifg);opacity:.85}
+.info{position:absolute;inset:0;overflow-y:auto;padding:12px 14px;font-size:15px;line-height:1.45;-webkit-user-select:text;user-select:text}
+.info p{margin:0 0 10px}.info ol{margin:0 0 10px;padding-left:20px}
+.np{position:absolute;inset:0;display:flex;flex-direction:column;padding:12px;gap:10px}
+.np-top{flex:1;display:flex;gap:12px;align-items:center;min-height:0}
+.art{flex:0 0 auto;width:42%;max-width:170px;aspect-ratio:1;border-radius:6px;background:linear-gradient(135deg,var(--art1),var(--art2));
+  display:flex;align-items:center;justify-content:center;font-size:42px;color:var(--artfg);overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+.art img{width:100%;height:100%;object-fit:cover;display:block}
+.np-meta{flex:1;min-width:0}
+.np-c{font-size:12px;color:var(--dim);margin-bottom:6px}
+.np-t{font-size:clamp(13px,5.4cqw,18px);font-weight:700;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.np-a,.np-al{font-size:14px;color:var(--dim);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.np-f{font-size:12px;color:var(--hi1);margin-top:8px;min-height:15px}
+.prog{height:8px;border-radius:4px;background:var(--prog);overflow:hidden}
+.fill{height:100%;width:0;background:linear-gradient(90deg,var(--hi2),var(--hi1))}
+.times{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
+.empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:15px;text-align:center;padding:20px}
+.toast{position:absolute;left:10px;right:10px;bottom:10px;padding:9px 12px;border-radius:10px;background:rgba(20,26,32,.95);
+  border:1px solid rgba(255,255,255,.1);font-size:14px;text-align:center;opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none;z-index:25}
+.toast.on{opacity:1;transform:none}
+.deck,.screen,.bar,.center{transition:background .25s,color .25s}
+input[type=file]{display:none}
+.offscr{position:absolute;inset:0;background:#000;z-index:40;display:none}
+.deck.asleep .offscr{display:block}
+.body{border-radius:0 0 4px 4px}
+/* ----- control deck: four hardware keys and a rotary jog dial ----- */
+.controls{width:100%;max-width:560px;flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:16px}
+.btnrow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;width:100%}
+.btnrow button{min-height:52px;border:0;border-radius:9px;padding:6px 4px;
+  background:linear-gradient(180deg,var(--center1),var(--center2));
+  box-shadow:0 4px 0 rgba(0,0,0,.55),0 5px 8px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.14);
+  color:var(--label);font:700 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.16em;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;touch-action:none;cursor:pointer;
+  transition:transform .06s,box-shadow .06s,color .1s}
+.btnrow button svg{width:20px;height:20px}
+.btnrow button:active,.btnrow button.flash{transform:translateY(3px);
+  box-shadow:0 1px 0 rgba(0,0,0,.55),0 2px 4px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.1)}
+.btnrow button.flash{color:var(--labelOn)}
+.knobwrap{position:relative;flex:0 0 auto;width:calc(var(--wsz) + 26px);height:calc(var(--wsz) + 26px);border-radius:50%;
+  display:flex;align-items:center;justify-content:center}
+.knobwrap::before{content:"";position:absolute;inset:0;border-radius:50%;opacity:.55;
+  background:repeating-conic-gradient(from -1deg,var(--label) 0 2deg,transparent 2deg 18deg);
+  -webkit-mask:radial-gradient(circle,transparent 0 86%,#000 87% 100%);mask:radial-gradient(circle,transparent 0 86%,#000 87% 100%)}
+.wheel{position:relative;width:var(--wsz);height:var(--wsz);border-radius:50%;touch-action:none;cursor:grab;
+  box-shadow:0 10px 18px rgba(0,0,0,.55),0 0 0 2px rgba(0,0,0,.55)}
+.grip{position:absolute;inset:0;border-radius:50%;pointer-events:none;
+  background:repeating-conic-gradient(var(--wheel1) 0 3deg,var(--wheel2) 3deg 6deg)}
+.grip::before{content:"";position:absolute;inset:8%;border-radius:50%;
+  background:radial-gradient(circle at 50% 30%,var(--wheel1),var(--wheel2) 80%);
+  box-shadow:0 0 0 1px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.12)}
+.grip::after{content:"";position:absolute;left:50%;top:11%;width:6px;height:6px;margin-left:-3px;border-radius:50%;
+  background:var(--labelOn);box-shadow:0 0 4px rgba(255,255,255,.5)}
+.center{position:absolute;left:32%;top:32%;width:36%;height:36%;border-radius:50%;border:0;padding:0;
+  background:radial-gradient(circle at 50% 30%,var(--center1),var(--center2));
+  box-shadow:0 0 0 1px rgba(0,0,0,.5),inset 0 2px 3px rgba(0,0,0,.35),inset 0 -1px 0 rgba(255,255,255,.08);
+  color:var(--label);font:700 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.18em;cursor:pointer}
+.center:active{filter:brightness(1.35)}
+.flow{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden}
+.stage{flex:1;position:relative;perspective:600px;overflow:hidden}
+.cover{position:absolute;left:50%;border-radius:4px;overflow:hidden;background:linear-gradient(135deg,var(--art1),var(--art2));
+  color:var(--artfg);display:flex;align-items:center;justify-content:center;font-size:40px;cursor:pointer;
+  transition:transform .28s ease;-webkit-box-reflect:below 2px linear-gradient(transparent 62%,rgba(255,255,255,.22))}
+.cover img{width:100%;height:100%;object-fit:cover;display:block}
+.flow-cap{flex:0 0 auto;text-align:center;padding:4px 10px 10px}
+.flow-cap .t{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.flow-cap .a{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+</style>
+</head>
+<body>
+<div class="deck">
+  <div class="window">
+    <div class="screen">
+      <div class="bar">
+        <span class="ind" id="ind"></span>
+        <span class="t" id="title">MP3 Player</span>
+        <svg width="24" height="12" viewBox="0 0 24 12" aria-hidden="true"><rect x=".5" y=".5" width="20" height="11" rx="2" fill="none" stroke="#8b97a4"/><rect x="2" y="2" width="15" height="8" rx="1" fill="#5fd068"/><rect x="21.5" y="4" width="2" height="4" rx="1" fill="#8b97a4"/></svg>
+      </div>
+      <div class="body" id="body"></div>
+      <div class="toast" id="toast"></div>
+      <div class="offscr" id="offscr"></div>
+    </div>
+  </div>
+  <div class="strip"><span class="led" id="led"></span><span id="brand">MP3 PLAYER</span><span class="rule"></span><span>STEREO · HI-FI</span></div>
+  <div class="controls">
+    <div class="btnrow" id="btnrow">
+      <button data-z="menu" aria-label="Back"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M10 5 3 12l7 7v-4.5h5a4 4 0 0 1 0 8h-1v2h1a6 6 0 0 0 0-12h-5z" transform="translate(0 -3)"/></svg>BACK</button>
+      <button data-z="prev" aria-label="Previous"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M21 6l-7 6 7 6zM13 6l-7 6 7 6zM3 6h2v12H3z"/></svg>PREV</button>
+      <button data-z="play" aria-label="Play or pause"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M2 6l8 6-8 6zM13 6h3v12h-3zM18.5 6h3v12h-3z"/></svg>PLAY</button>
+      <button data-z="next" aria-label="Next"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M3 6l7 6-7 6zM11 6l7 6-7 6zM19 6h2v12h-2z"/></svg>NEXT</button>
+    </div>
+    <div class="knobwrap">
+      <div class="wheel" id="wheel" aria-label="Jog dial">
+        <div class="grip" id="grip"></div>
+        <button class="center" id="center" aria-label="Select">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+<input type="file" id="pickAudio" accept="audio/*,.mp3,.m4a,.aac,.wav" multiple>
+<input type="file" id="pickFolder" webkitdirectory multiple>
+<input type="file" id="pickBook" accept=".m4b,.m4a,.mp3,.aac,audio/*" multiple>
+<input type="file" id="pickBackup">
+<input type="file" id="pickReconnect" accept="audio/*,.mp3,.m4a,.m4b,.aac,.wav" multiple>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const APP_NAME = 'MP3 Player';
+const LS = 'mp3-player:settings';
+
+/* ---------- settings (localStorage) ---------- */
+const settings = Object.assign({shuffle:false, repeat:'off', clicker:true, haptics:true, body:'black', screen:'dark', last:null,
+  otg:[], eq:'off', bookSpeed:1, bookPos:{}, brickHigh:0, spInApp:true, name:APP_NAME, gen:'big', wheel:'auto'},
+  (() => { try { return JSON.parse(localStorage.getItem(LS) || '{}'); } catch (e) { return {}; } })());
+function saveSettings(){ try { localStorage.setItem(LS, JSON.stringify(settings)); } catch (e) {} }
+
+/* ---------- IndexedDB (songs + audio + playlists) ---------- */
+let db;
+function openDB(){
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('mp3-player', 1);
+    r.onupgradeneeded = () => {
+      const d = r.result;
+      d.createObjectStore('meta', {keyPath:'id'});
+      d.createObjectStore('audio');
+      d.createObjectStore('playlists', {keyPath:'id'});
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+function tx(store, mode, fn){
+  return new Promise((res, rej) => {
+    const t = db.transaction(store, mode);
+    let out; const r = fn(t.objectStore(store));
+    if (r) r.onsuccess = () => { out = r.result; };
+    t.oncomplete = () => res(out);
+    t.onerror = () => rej(t.error);
+    t.onabort = () => rej(t.error);
+  });
+}
+const dbAll = st => tx(st, 'readonly', s => s.getAll());
+const dbGet = (st, k) => tx(st, 'readonly', s => s.get(k));
+const dbPut = (st, v, k) => tx(st, 'readwrite', s => k === undefined ? s.put(v) : s.put(v, k));
+const dbDel = (st, k) => tx(st, 'readwrite', s => s.delete(k));
+const dbClear = st => tx(st, 'readwrite', s => s.clear());
+const dbKeys = st => tx(st, 'readonly', s => s.getAllKeys());
+
+let songs = [];      // metadata only
+let playlists = [];  // saved Quick List playlists
+
+/* No streaming service in this version: playback is always local. */
+const remote = false, spNow = null;
+const spRelease = () => {}, spControl = () => {}, spSeek = () => {}, spShuffle = () => {}, spScheduleSeek = () => {};
+const spPos = () => 0;
+const byName = (a, b) => a.name.localeCompare(b.name, undefined, {sensitivity:'base'});
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(msg, ms = 1800){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), ms);
+}
+
+/* ---------- colors ---------- */
+const LIGHT_WHEEL = {wheel1:'#fbfbfc', wheel2:'#d5d8dc', center1:'#eceef1', center2:'#d3d6db', label:'#7d838b', labelOn:'#2a2e33'};
+const BODIES = {
+  black:  {name:'Graphite', body1:'#2b2c31', body2:'#151619', wheel1:'#45474e', wheel2:'#1a1b1f', center1:'#3b3c43', center2:'#232429', label:'#b7bec7', labelOn:'#ffffff'},
+  white:  Object.assign({name:'White',  body1:'#fbfbfa', body2:'#dcdddb'}, LIGHT_WHEEL),
+  silver: Object.assign({name:'Silver', body1:'#eef0f2', body2:'#bfc4ca'}, LIGHT_WHEEL),
+  red:    Object.assign({name:'Red',    body1:'#d8293d', body2:'#8c1020'}, LIGHT_WHEEL),
+  blue:   Object.assign({name:'Blue',   body1:'#3d82e0', body2:'#18479e'}, LIGHT_WHEEL),
+  green:  Object.assign({name:'Green',  body1:'#62c552', body2:'#2b8327'}, LIGHT_WHEEL),
+  orange: Object.assign({name:'Orange', body1:'#f28a2e', body2:'#b7520f'}, LIGHT_WHEEL),
+  pink:   Object.assign({name:'Pink',   body1:'#ee77b0', body2:'#b43a76'}, LIGHT_WHEEL),
+  purple: Object.assign({name:'Purple', body1:'#9065d6', body2:'#55309c'}, LIGHT_WHEEL),
+  gold:   Object.assign({name:'Gold',   body1:'#ead0a0', body2:'#b38c4f'}, LIGHT_WHEEL)
+};
+const SCREENS = {
+  dark:    {name:'Dark',          screen:'#0f1317', fg:'#e9eef4', dim:'#8b97a4', bar1:'#232a31', bar2:'#161b20', hi1:'#3b8eff', hi2:'#1d5fd2', hifg:'#ffffff', prog:'#26303a', art1:'#2a3440', art2:'#151a20', artfg:'#4c5a68'},
+  classic: {name:'Light',         screen:'#eef1f4', fg:'#15191d', dim:'#5d6874', bar1:'#fbfcfd', bar2:'#d6dce2', hi1:'#5ea4f2', hi2:'#2b6fd1', hifg:'#ffffff', prog:'#cbd3db', art1:'#d9dfe5', art2:'#b9c2cb', artfg:'#8a96a2'},
+  lcd:     {name:'Grayscale LCD', screen:'#c6ccb4', fg:'#1f2419', dim:'#566049', bar1:'#c6ccb4', bar2:'#b9c0a6', hi1:'#1f2419', hi2:'#1f2419', hifg:'#c6ccb4', prog:'#a7af97', art1:'#b3baa1', art2:'#a3aa91', artfg:'#566049'},
+  backlit: {name:'Blue Backlight', screen:'#a9cfe7', fg:'#0c2131', dim:'#2e4f66', bar1:'#c2e0f1', bar2:'#93c0dd', hi1:'#14334a', hi2:'#0c2131', hifg:'#bfe1f3', prog:'#82b4d4', art1:'#8fbfdd', art2:'#6fa6c9', artfg:'#2e4f66'},
+  amber:   {name:'Amber',         screen:'#170f04', fg:'#ffb547', dim:'#b07a2a', bar1:'#2a1d0a', bar2:'#1d1406', hi1:'#ffb547', hi2:'#e0952a', hifg:'#170f04', prog:'#3a2a10', art1:'#2a1d0a', art2:'#170f04', artfg:'#b07a2a'},
+  green:   {name:'Green Terminal', screen:'#08120a', fg:'#7dff8c', dim:'#3fa34c', bar1:'#11251a', bar2:'#0a170e', hi1:'#7dff8c', hi2:'#4cd65d', hifg:'#08120a', prog:'#183a20', art1:'#11251a', art2:'#08120a', artfg:'#3fa34c'}
+};
+const DARK_WHEEL = {wheel1:'#45474e', wheel2:'#1a1b1f', center1:'#3b3c43', center2:'#232429', label:'#b7bec7', labelOn:'#ffffff'};
+const WHEELS = {
+  auto:   {name:'Automatic'},
+  white:  Object.assign({name:'White'}, LIGHT_WHEEL),
+  black:  Object.assign({name:'Black'}, DARK_WHEEL),
+  gray:   {name:'Gray',   wheel1:'#b3b7bc', wheel2:'#73777d', center1:'#9b9fa4', center2:'#7b7f85', label:'#f2f3f5', labelOn:'#ffffff'},
+  silver: {name:'Brushed Metal', wheel1:'#f1f3f5', wheel2:'#9ea3a9', center1:'#e0e3e7', center2:'#bec2c7', label:'#5d636b', labelOn:'#22262b'},
+  body:   {name:'Same as Body'}
+};
+const isLight = hex => { const n = parseInt(String(hex).slice(1), 16); return ((n >> 16 & 255) * 299 + (n >> 8 & 255) * 587 + (n & 255) * 114) / 1000 > 165; };
+function wheelColors(b){
+  const w = settings.wheel || 'auto';
+  if (w === 'body') {
+    const light = isLight(b.body1);
+    return {wheel1:b.body1, wheel2:b.body2, center1:b.body1, center2:b.body2,
+      label: light ? '#6d737b' : 'rgba(255,255,255,.78)', labelOn: light ? '#2d3136' : '#ffffff'};
+  }
+  return WHEELS[w] && WHEELS[w].wheel1 ? WHEELS[w] : b;
+}
+function applyTheme(){
+  const b = BODIES[settings.body] || BODIES.black, sc = SCREENS[settings.screen] || SCREENS.dark, wc = wheelColors(b);
+  const st = document.documentElement.style;
+  ['body1','body2'].forEach(k => st.setProperty('--' + k, b[k]));
+  ['wheel1','wheel2','center1','center2','label','labelOn'].forEach(k => st.setProperty('--' + k, wc[k]));
+  ['screen','fg','dim','bar1','bar2','hi1','hi2','hifg','prog','art1','art2','artfg'].forEach(k => st.setProperty('--' + k, sc[k]));
+}
+applyTheme();
+
+/* One layout: the four keys hold the buttons and the dial only scrolls (layout 'row'); the dial's knurl turns with your finger (scroll). */
+const GENS = {big: {name:'Standard', layout:'row', scroll:true, color:true}};
+const curGen = () => GENS.big;
+function applyGen(){
+  /* nothing to switch: the deck layout is fixed. (Adding a 'row' class here would pick up the list-row padding.) */
+}
+function colorView(title, key, table){
+  const v = listView(title, () => Object.keys(table).map(k => ({
+    label: table[k].name, r: settings[key] === k ? '✓' : '', act: () => {
+      settings[key] = k; saveSettings(); applyTheme(); if (game) game.col = brickColors(); refresh();
+    }})));
+  v.sel = Math.max(0, Object.keys(table).indexOf(settings[key]));
+  return v;
+}
+function setBrand(){ const b = document.getElementById('brand'); if (b) b.textContent = deviceName().toUpperCase(); }
+
+function haptic(){}   // no haptics in this version
+
+/* ---------- click sound ---------- */
+let actx;
+function tick(kind){
+  haptic(kind || 'selection');
+  if (!settings.clicker) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    const o = actx.createOscillator(), g = actx.createGain(), n = actx.currentTime;
+    o.type = 'square'; o.frequency.value = 2400;
+    g.gain.setValueAtTime(0.04, n); g.gain.exponentialRampToValueAtTime(0.0001, n + 0.018);
+    o.connect(g); g.connect(actx.destination); o.start(n); o.stop(n + 0.025);
+  } catch (e) {}
+}
+
+/* ---------- ID3 tag reading ---------- */
+function decText(enc, bytes){
+  try {
+    let label = 'iso-8859-1';
+    if (enc === 3) label = 'utf-8';
+    else if (enc === 2) label = 'utf-16be';
+    else if (enc === 1) label = (bytes[0] === 0xFE && bytes[1] === 0xFF) ? 'utf-16be' : 'utf-16le';
+    return new TextDecoder(label).decode(bytes).replace(/^﻿/, '');
+  } catch (e) { return ''; }
+}
+function parsePic(id, d){
+  const enc = d[0]; let p = 1, mime;
+  if (id === 'PIC') { const f = String.fromCharCode(d[1], d[2], d[3]).toLowerCase(); mime = f === 'png' ? 'image/png' : 'image/jpeg'; p = 4; }
+  else {
+    let q = p; while (q < d.length && d[q] !== 0) q++;
+    mime = String.fromCharCode.apply(null, d.subarray(p, q)) || 'image/jpeg';
+    if (mime.indexOf('/') < 0) mime = 'image/' + mime.toLowerCase();
+    p = q + 1;
+  }
+  p++; // picture type
+  if (enc === 1 || enc === 2) { while (p + 1 < d.length && !(d[p] === 0 && d[p + 1] === 0)) p += 2; p += 2; }
+  else { while (p < d.length && d[p] !== 0) p++; p++; }
+  return new Blob([d.slice(p)], {type:mime});
+}
+function parseID3(buf){
+  const out = {}; const b = new Uint8Array(buf);
+  if (b.length < 10 || b[0] !== 73 || b[1] !== 68 || b[2] !== 51) return out;
+  const ver = b[3], flags = b[5];
+  const size = (b[6] & 127) << 21 | (b[7] & 127) << 14 | (b[8] & 127) << 7 | (b[9] & 127);
+  let p = 10; const end = Math.min(b.length, 10 + size);
+  if ((flags & 0x40) && ver >= 3) {
+    p += ver === 4 ? ((b[p] & 127) << 21 | (b[p+1] & 127) << 14 | (b[p+2] & 127) << 7 | (b[p+3] & 127))
+                   : (((b[p] << 24) | (b[p+1] << 16) | (b[p+2] << 8) | b[p+3]) >>> 0) + 4;
+  }
+  const idLen = ver === 2 ? 3 : 4, hLen = ver === 2 ? 6 : 10;
+  const map = {TT2:'title',TP1:'artist',TAL:'album',TRK:'track',TIT2:'title',TPE1:'artist',TALB:'album',TRCK:'track'};
+  while (p + hLen <= end) {
+    const id = String.fromCharCode.apply(null, b.subarray(p, p + idLen));
+    if (!/^[A-Z0-9]+$/.test(id)) break;
+    let fs;
+    if (ver === 2) fs = b[p+3] << 16 | b[p+4] << 8 | b[p+5];
+    else if (ver === 4) fs = (b[p+4] & 127) << 21 | (b[p+5] & 127) << 14 | (b[p+6] & 127) << 7 | (b[p+7] & 127);
+    else fs = ((b[p+4] << 24) | (b[p+5] << 16) | (b[p+6] << 8) | b[p+7]) >>> 0;
+    const d = p + hLen;
+    if (fs <= 0 || d + fs > end) break;
+    const data = b.subarray(d, d + fs);
+    if (map[id] && !out[map[id]]) out[map[id]] = decText(data[0], data.subarray(1)).split('\0')[0].trim();
+    else if ((id === 'APIC' || id === 'PIC') && !out.art) { try { out.art = parsePic(id, data); } catch (e) {} }
+    else if (id === 'CHAP' && ver >= 3) { const ch = parseChap(data, ver); if (ch) (out.chapters = out.chapters || []).push(ch); }
+    p = d + fs;
+  }
+  return out;
+}
+function parseChap(d, ver){
+  let p = 0; while (p < d.length && d[p] !== 0) p++; p++;           // element id
+  if (p + 16 > d.length) return null;
+  const start = ((d[p] << 24) | (d[p+1] << 16) | (d[p+2] << 8) | d[p+3]) >>> 0;
+  p += 16;
+  let title = '';
+  while (p + 10 <= d.length) {
+    const id = String.fromCharCode(d[p], d[p+1], d[p+2], d[p+3]);
+    const fs = ver === 4 ? ((d[p+4] & 127) << 21 | (d[p+5] & 127) << 14 | (d[p+6] & 127) << 7 | (d[p+7] & 127))
+                         : (((d[p+4] << 24) | (d[p+5] << 16) | (d[p+6] << 8) | d[p+7]) >>> 0);
+    if (fs <= 0 || p + 10 + fs > d.length) break;
+    if (id === 'TIT2') { const t = d.subarray(p + 10, p + 10 + fs); title = decText(t[0], t.subarray(1)).split('\0')[0].trim(); break; }
+    p += 10 + fs;
+  }
+  return {start: start / 1000, title};
+}
+
+/* ---------- MP4 / M4A / M4B tags and chapters ---------- */
+const u32 = (u, p) => ((u[p] << 24) | (u[p+1] << 16) | (u[p+2] << 8) | u[p+3]) >>> 0;
+const fourcc = (u, p) => String.fromCharCode(u[p], u[p+1], u[p+2], u[p+3]);
+function mp4Children(u, start, end){
+  const out = []; let p = start;
+  while (p + 8 <= end) {
+    let size = u32(u, p), hdr = 8; const type = fourcc(u, p + 4);
+    if (size === 1) { size = u32(u, p + 8) * 4294967296 + u32(u, p + 12); hdr = 16; }
+    else if (size === 0) size = end - p;
+    if (size < hdr || p + size > end) break;
+    out.push({type, body:p + hdr, end:p + size});
+    p += size;
+  }
+  return out;
+}
+async function mp4Tags(file){
+  let p = 0, moov = null;
+  while (p + 8 <= file.size) {
+    const h = new Uint8Array(await file.slice(p, p + 16).arrayBuffer());
+    let size = u32(h, 0), hdr = 8; const type = fourcc(h, 4);
+    if (size === 1) { size = u32(h, 8) * 4294967296 + u32(h, 12); hdr = 16; }
+    else if (size === 0) size = file.size - p;
+    if (size < hdr) break;
+    if (type === 'moov') { moov = {start:p, size}; break; }
+    p += size;
+  }
+  const out = {};
+  if (!moov || moov.size > 32 * 1048576) return out;
+  const u = new Uint8Array(await file.slice(moov.start, moov.start + moov.size).arrayBuffer());
+  const find = (list, t) => list.find(b => b.type === t);
+  const mv = find(mp4Children(u, 0, u.length), 'moov'); if (!mv) return out;
+  const udta = find(mp4Children(u, mv.body, mv.end), 'udta'); if (!udta) return out;
+  const kids = mp4Children(u, udta.body, udta.end);
+  const chpl = find(kids, 'chpl');
+  if (chpl) {
+    let q = chpl.body; const version = u[q]; q += 4; if (version) q += 4;
+    const n = u[q]; q++;
+    const chapters = [], dec = new TextDecoder('utf-8');
+    for (let i = 0; i < n && q + 9 <= chpl.end; i++) {
+      const t = u32(u, q) * 4294967296 + u32(u, q + 4), len = u[q + 8];
+      chapters.push({start: t / 1e7, title: dec.decode(u.subarray(q + 9, q + 9 + len))});
+      q += 9 + len;
+    }
+    if (chapters.length) out.chapters = chapters;
+  }
+  const meta = find(kids, 'meta');
+  if (meta) {
+    const off = fourcc(u, meta.body + 8) === 'hdlr' ? meta.body + 4 : meta.body;   // full box (4-byte version/flags) or not
+    const ilst = find(mp4Children(u, off, meta.end), 'ilst');
+    if (ilst) for (const it of mp4Children(u, ilst.body, ilst.end)) {
+      const data = find(mp4Children(u, it.body, it.end), 'data'); if (!data) continue;
+      const kind = u32(u, data.body), val = u.subarray(data.body + 8, data.end);
+      const text = () => new TextDecoder('utf-8').decode(val).trim();
+      const ty = it.type;
+      if (ty === '©nam') out.title = text();
+      else if (ty === '©ART') out.artist = text();
+      else if (ty === 'aART') out.albumArtist = text();
+      else if (ty === '©alb') out.album = text();
+      else if (ty === 'trkn' && val.length >= 4) out.track = (val[2] << 8) | val[3];
+      else if (ty === 'covr' && !out.art) out.art = new Blob([val.slice()], {type: kind === 14 ? 'image/png' : 'image/jpeg'});
+    }
+  }
+  out.mp4 = true;
+  return out;
+}
+async function readTags(file){
+  try {
+    const h = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+    if (h[0] === 73 && h[1] === 68 && h[2] === 51) {
+      const size = (h[6] & 127) << 21 | (h[7] & 127) << 14 | (h[8] & 127) << 7 | (h[9] & 127);
+      return parseID3(await file.slice(0, 10 + size).arrayBuffer());
+    }
+    if (fourcc(h, 4) === 'ftyp') return await mp4Tags(file);
+  } catch (e) {}
+  return {};
+}
+function shrinkArt(blob){
+  return new Promise(res => {
+    const url = URL.createObjectURL(blob), img = new Image();
+    const done = v => { URL.revokeObjectURL(url); res(v); };
+    img.onload = () => {
+      try {
+        const S = 240, c = document.createElement('canvas'); c.width = c.height = S;
+        const k = Math.max(S / img.width, S / img.height), w = img.width * k, h = img.height * k;
+        c.getContext('2d').drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
+        done(c.toDataURL('image/jpeg', 0.8));
+      } catch (e) { done(null); }
+    };
+    img.onerror = () => done(null);
+    img.src = url;
+  });
+}
+function probeDuration(blob){
+  return new Promise(res => {
+    const a = new Audio(), url = URL.createObjectURL(blob);
+    let t;
+    const done = v => { clearTimeout(t); URL.revokeObjectURL(url); a.removeAttribute('src'); res(v); };
+    a.preload = 'metadata';
+    a.onloadedmetadata = () => done(isFinite(a.duration) ? a.duration : 0);
+    a.onerror = () => done(0);
+    t = setTimeout(() => done(0), 4000);
+    a.src = url;
+  });
+}
+
+/* ---------- importing music and audiobooks ---------- */
+/* ---------- reconnect music ----------
+   Songs whose stored audio is missing (storage cleared, partial restore, reinstall) keep their info,
+   edits, play counts and playlists. Pick the files from wherever they are now: each file is matched
+   by name + size, then by name, then by title + artist tags, and its audio is stored under the old song. */
+let missingIds = new Set();
+async function checkMissing(){
+  try {
+    const keys = new Set(await dbKeys('audio'));
+    const lost = songs.filter(s => !s.linked && !keys.has(s.id)).map(s => s.id);
+    const linkedLost = songs.filter(s => s.linked && missingIds.has(s.id)).map(s => s.id);   // set by the folder scan
+    missingIds = new Set(lost.concat(linkedLost));
+  } catch (e) {}
+  return missingIds.size;
+}
+
+/* ---------- the app's own music folder (HTMLBoard) ----------
+   HTMLBoard gives this app a folder in the Files app. Songs in it are played straight from the folder — nothing is copied.
+   Every launch (and Scan Music Folder) re-reads the folder: new files are added, moved or renamed files are found again by
+   name + size or by their tags, and songs whose files are gone are marked missing. Your edits, play counts and playlists stay.
+   Host contract:  host.listFiles() -> Promise<[{path, name, size, modified}]>  (recursive, paths relative to the folder)
+                   host.fileURL(path) -> string URL the page can play and fetch (Range + CORS)
+                   host.folderName -> optional display name of the folder */
+const AUDIO_RX = /\.(mp3|m4a|m4b|aac|wav|aif|aiff|flac|ogg)$/i;
+const hasFolder = () => !!(window.host && typeof window.host.listFiles === 'function' && typeof window.host.fileURL === 'function');
+const folderLabel = () => (window.host && window.host.folderName) || 'On My iPhone › HTMLBoard › ' + APP_NAME;
+let damagedFiles = [], removedInFiles = 0;
+let scanState = {running:false, last:null, added:0, moved:0, missing:0, error:''};
+async function fileBlob(path){
+  const r = await fetch(window.host.fileURL(path));
+  if (!r.ok && r.status !== 206) throw new Error('HTTP ' + r.status);
+  return r.blob();
+}
+async function scanFolder(quiet){
+  if (!hasFolder() || scanState.running) return;
+  scanState = Object.assign(scanState, {running:true, error:''});
+  if (!quiet) { toast('Scanning music folder…', 600000); refresh(); }
+  let added = 0, moved = 0;
+  try {
+    const all = (await window.host.listFiles()) || [];
+    const audioFiles = all.filter(f => f && f.path && AUDIO_RX.test(f.path));
+    damagedFiles = audioFiles.filter(f => typeof f.size === 'number' && f.size <= DAMAGED_MAX);
+    const files = audioFiles.filter(f => !damagedFiles.includes(f));
+    await checkMissing();                                   // know which copied songs lost their audio first
+    const linked = songs.filter(x => x.linked);
+    const orphans = songs.filter(x => !x.linked && missingIds.has(x.id));   // copied songs to look for in the folder
+    const taken = new Set(), byPath = new Map(files.map(f => [f.path, f]));
+    const lost = [];
+    // 1. still where we left them
+    for (const x of linked) {
+      const f = byPath.get(x.path);
+      if (f && (!x.size || !f.size || f.size === x.size)) taken.add(f.path); else lost.push(x);
+    }
+    // 2. moved or renamed inside the folder — and copied songs whose audio is gone
+    lost.push(...orphans);
+    const free = () => files.filter(f => !taken.has(f.path));
+    const tagCache = new Map();
+    const tagsOf = async f => { if (!tagCache.has(f.path)) { try { tagCache.set(f.path, await readTags(await fileBlob(f.path))); } catch (e) { tagCache.set(f.path, {}); } } return tagCache.get(f.path); };
+    const stillLost = [];
+    for (const x of lost) {
+      const fname = (x.path || x.file || '').split('/').pop().toLowerCase();
+      let f = free().find(y => y.name.toLowerCase() === fname && y.size === x.size)
+           || free().find(y => y.size === x.size && baseName(y.name) === baseName(fname))
+           || free().find(y => y.name.toLowerCase() === fname);
+      if (!f) for (const y of free().filter(y => !x.size || Math.abs(y.size - x.size) < x.size * 0.5)) {
+        const t = await tagsOf(y), tt = norm(t.title);
+        if (!tt) continue;
+        const titleOk = tt === norm(x.origTitle || x.title) || tt === norm(x.title);
+        const artistOk = !norm(t.artist) || [x.origArtist, x.artist].some(a => norm(a) === norm(t.artist));
+        if (titleOk && (artistOk || (x.size && y.size === x.size))) { f = y; break; }
+      }
+      if (f) {
+        const wasCopied = !x.linked;
+        taken.add(f.path); Object.assign(x, {linked:true, path:f.path, file:f.name, size:f.size, modified:f.modified,
+          type: /\.m4[ab]$/i.test(f.name) ? 'audio/mp4' : (x.type || 'audio/mpeg')});
+        await dbPut('meta', x); missingIds.delete(x.id); moved++;
+        if (wasCopied) { try { await dbDel('audio', x.id); } catch (e) {} }
+        if (current && current.id === x.id && loadedId === x.id) loadedId = null;      // reload from the new place on next play
+      } else stillLost.push(x);
+    }
+    // Folder songs whose file was deleted in the Files app (not moved, not damaged) leave the library.
+    // Safety: if the folder looks empty or most files vanished at once, keep them as missing instead.
+    const damagedPaths = new Set(damagedFiles.map(f => f.path));
+    const deletedInFiles = stillLost.filter(x => x.linked && !damagedPaths.has(x.path));
+    const linkedCount = linked.length;
+    if (deletedInFiles.length && all.length && deletedInFiles.length <= Math.max(10, linkedCount / 2)) {
+      for (const x of deletedInFiles) { await deleteSong(x.id, {keepFile:true}); stillLost.splice(stillLost.indexOf(x), 1); }
+      removedInFiles = deletedInFiles.length;
+    } else removedInFiles = 0;
+    stillLost.forEach(x => missingIds.add(x.id));
+    linked.filter(x => !stillLost.includes(x)).forEach(x => missingIds.delete(x.id));
+    // 3. new files
+    const fresh = free();
+    let n = 0;
+    for (const f of fresh) {
+      n++; if (!quiet || fresh.length > 3) toast(`Adding ${n} of ${fresh.length} from your music folder…`, 600000);
+      const kind = /^audiobooks?\//i.test(f.path) ? 'book' : 'song';
+      let tags = {};
+      try { tags = await readTags(await fileBlob(f.path)); } catch (e) {}
+      const art = tags.art ? await shrinkArt(tags.art) : null;
+      const base = f.name.replace(/\.[^.]+$/, '');
+      const meta = {id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8), kind, linked:true, path:f.path,
+        file:f.name, size:f.size, modified:f.modified, duration:0, art,
+        type: /\.m4[ab]$/i.test(f.name) ? 'audio/mp4' : 'audio/mpeg', added:Date.now(), plays:0,
+        origTitle: tags.title || base, origArtist: tags.artist || ''};
+      if (kind === 'book') {
+        const stripped = base.replace(/[\s._-]*(part|pt|chapter|ch|track|disc|cd)?[\s._-]*\d+$/i, '').trim();
+        const bookTitle = tags.album || (tags.mp4 ? tags.title : '') || stripped || base;
+        const author = tags.albumArtist || tags.artist || 'Unknown Author';
+        Object.assign(meta, {title: tags.title || base, artist: author, album: 'Audiobook', track: 0, bookTitle,
+          book: 'b:' + norm(bookTitle) + '|' + norm(author), part: parseInt(tags.track, 10) || 0,
+          chapters: (tags.chapters || []).filter(c => isFinite(c.start)).sort((a, b) => a.start - b.start)
+            .map((c, i) => ({start:c.start, title:c.title || `Chapter ${i + 1}`}))});
+      } else Object.assign(meta, {title: tags.title || base, artist: tags.artist || 'Unknown Artist', album: tags.album || 'Unknown Album', track: parseInt(tags.track, 10) || 0});
+      await dbPut('meta', meta); songs.push(meta); taken.add(f.path); added++;
+    }
+    scanState = {running:false, last:Date.now(), added, moved, missing:stillLost.length, error:''};
+    if (!quiet || added || moved || stillLost.length || removedInFiles)
+      toast([added && `Added ${added}`, moved && `Reconnected ${moved}`, removedInFiles && `Removed ${removedInFiles} deleted in Files`, stillLost.length && `${stillLost.length} still missing`].filter(Boolean).join(' · ') || 'Music folder is up to date', 3500);
+  } catch (e) {
+    scanState = Object.assign(scanState, {running:false, error:(e && e.message) || String(e)});
+    if (!quiet) toast('Couldn’t read the music folder: ' + scanState.error, 4000);
+  }
+  refresh();
+}
+let saveBroken = '';           // set when HTMLBoard writes a file of the wrong size; stops all moving and saving
+const canSaveToFolder = () => hasFolder() && typeof window.host.saveFile === 'function' && !saveBroken;
+async function storedSize(path){
+  const r = await fetch(window.host.fileURL(path), {headers:{Range:'bytes=0-1'}});
+  const cr = r.headers && r.headers.get('content-range'), m = cr && cr.match(/\/(\d+)\s*$/);
+  if (m) return parseInt(m[1], 10);
+  return (await r.blob()).size;                 // no range support: count the whole reply
+}
+/* Saves into the folder and reads the size back. Returns the path only if the file arrived intact. */
+async function saveChecked(blob, path){
+  const saved = await window.host.saveFile(blob, path);
+  if (typeof saved !== 'string' || !saved) throw new Error('HTMLBoard didn’t return a file path');
+  let size = -1;
+  try { size = await storedSize(saved); } catch (e) {}
+  if (size !== blob.size) {
+    saveBroken = `HTMLBoard saved ${size < 0 ? 'an unreadable file' : size + ' bytes'} instead of ${blob.size} (${saved})`;
+    try { if (typeof window.host.deleteFile === 'function') await window.host.deleteFile(saved); } catch (e) {}
+    plog('saveFile check failed: ' + saveBroken);
+    throw Object.assign(new Error(saveBroken), {saveBroken:true});
+  }
+  return saved;
+}
+const DAMAGED_MAX = 1024;      // real audio files are never this small; HTMLBoard's bad saves are 15 bytes ("[object Object]")
+const copiedSongs = () => songs.filter(s => !s.linked && !missingIds.has(s.id));
+let moving = false;
+/* ---------- folder organization ----------
+   Files the app writes go into  Music/<Artist>/<Album>/<NN Title>.<ext>
+   and audiobooks into           Audiobooks/<Author>/<Book>/<file name>.
+   Organize Folder sorts files the app left loose at the top of the folder into that layout.
+   Files you placed in your own subfolders are never moved. */
+const safePart = (x, fallback) => (String(x || '').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').replace(/^[.\s]+|[.\s]+$/g, '').slice(0, 80)) || fallback;
+function extFor(s, name){
+  const m = String(name || s.file || s.path || '').match(/\.([a-z0-9]{2,4})$/i);
+  return m ? '.' + m[1].toLowerCase() : (s.type === 'audio/mp4' ? '.m4a' : '.mp3');
+}
+function organizedPath(s, name){
+  const ext = extFor(s, name);
+  if (isBook(s)) {
+    const file = safePart(String(name || s.file || s.title || 'Part').replace(/\.[^.]+$/, ''), 'Part');
+    return `Audiobooks/${safePart(s.artist, 'Unknown Author')}/${safePart(s.bookTitle || s.album, 'Unknown Book')}/${file}${ext}`;
+  }
+  const n = parseInt(s.track, 10) > 0 ? String(parseInt(s.track, 10)).padStart(2, '0') + ' ' : '';
+  return `Music/${safePart(s.artist, 'Unknown Artist')}/${safePart(s.album, 'Unknown Album')}/${n}${safePart(s.title, 'Untitled')}${ext}`;
+}
+// loose = sitting at the top of the folder, or directly in Audiobooks/, where the old move dropped them
+const isLoose = s => s.linked && s.path && (!s.path.includes('/') || /^audiobooks?\/[^/]+$/i.test(s.path));
+const canOrganize = () => canSaveToFolder() && typeof window.host.deleteFile === 'function';
+let organizing = false;
+async function organizeFolder(quiet){
+  if (!canOrganize() || organizing) return;
+  const list = songs.filter(s => isLoose(s) && !missingIds.has(s.id));
+  if (!list.length) { if (!quiet) toast('Your music folder is already organized', 2500); return; }
+  organizing = true; refresh();
+  let done = 0, failed = 0, i = 0;
+  for (const s of list) {
+    i++; toast(`Organizing ${i} of ${list.length}…`, 600000);
+    try {
+      const blob = await fileBlob(s.path);
+      if (blob.size <= DAMAGED_MAX) throw new Error('damaged file');
+      const old = s.path;
+      const path = await saveChecked(blob, organizedPath(s));
+      Object.assign(s, {path, file: path.split('/').pop(), size: blob.size, modified: Date.now()});
+      await dbPut('meta', s);                                   // the song points at the new file before the old one goes
+      try { await window.host.deleteFile(old); } catch (e) {}
+      if (current && current.id === s.id && loadedId === s.id) loadedId = null;
+      done++;
+    } catch (e) { failed++; if (e && e.saveBroken) break; }
+  }
+  organizing = false;
+  if (saveBroken) { toast('Stopped: HTMLBoard is saving damaged files. Nothing was moved or deleted.', 6000); refresh(); return; }
+  toast(`Organized ${done} file${done === 1 ? '' : 's'} into Artist / Album folders` + (failed ? ` · ${failed} couldn’t be moved` : ''), 4000);
+  refresh();
+}
+
+/* Songs stored inside the app (IndexedDB) are written into the music folder, then played from there.
+   Their info, edits, play counts and playlists stay; the copy inside the app is removed once the file is saved. */
+async function moveToFolder(quiet){
+  if (!canSaveToFolder() || moving) return;
+  const list = copiedSongs();
+  if (!list.length) { if (!quiet) toast('All songs are already in the music folder', 2500); return; }
+  moving = true;
+  let done = 0, failed = 0, i = 0;
+  for (const s of list) {
+    i++; toast(`Moving ${i} of ${list.length} into your music folder…`, 600000);
+    try {
+      const data = await dbGet('audio', s.id);
+      if (!data) { failed++; continue; }
+      const blob = data instanceof Blob ? data : new Blob([data], {type: s.type || 'audio/mpeg'});
+      const path = await saveChecked(blob, organizedPath(s));      // throws, keeping the in-app copy, if the file arrived damaged
+      Object.assign(s, {linked:true, path, file: path.split('/').pop(), size: blob.size, modified: Date.now()});
+      await dbPut('meta', s);
+      await dbDel('audio', s.id);
+      if (current && current.id === s.id && loadedId === s.id) loadedId = null;   // next play reads the file
+      done++;
+    } catch (e) { failed++; if (e && e.saveBroken) break; }
+  }
+  moving = false;
+  if (saveBroken) { toast('Stopped: HTMLBoard is saving damaged files. Your songs stay inside the app.', 6000); refresh(); return; }
+  toast(`Moved ${done} song${done === 1 ? '' : 's'} into your music folder` + (failed ? ` · ${failed} couldn’t be moved` : ''), 3500);
+  refresh();
+}
+function folderView(){
+  return listView('Music Folder', () => {
+    if (!hasFolder()) return [{label:'Needs the HTMLBoard folder update', sub:'HTMLBoard has to share this app’s folder with the page'}];
+    const linked = songs.filter(x => x.linked).length;
+    const items = [
+      {label: scanState.running ? 'Scanning…' : 'Scan Music Folder', sub: folderLabel(), act:() => scanFolder(false)},
+      {label:'Songs from the Folder', r:String(linked)}
+    ];
+    const inApp = copiedSongs().length;
+    if (inApp && canSaveToFolder()) items.push({label: moving ? 'Moving…' : 'Move Songs into Folder', r:String(inApp),
+      sub:'Songs stored inside the app become files you can see and manage', act:() => moveToFolder(false)});
+    const loose = songs.filter(isLoose).length;
+    if (loose && canOrganize()) items.push({label: organizing ? 'Organizing…' : 'Organize Folder', r:String(loose),
+      sub:'Sort loose files into Music › Artist › Album', act:() => organizeFolder(false)});
+    if (scanState.last) items.push({label:'Last Scan', r:new Date(scanState.last).toLocaleTimeString(),
+      sub:`Added ${scanState.added} · reconnected ${scanState.moved} · missing ${scanState.missing}`});
+    if (scanState.error) items.push({label:'Last error', sub:scanState.error});
+    items.push({label:'How It Works', arrow:true, act:() => push(infoView('Music Folder', `
+<p>Put music in <b>${esc(folderLabel())}</b> using the Files app. Subfolders are fine. Files in a folder named <b>Audiobooks</b> become audiobooks.</p>
+<p>Songs the app adds go into <b>Music › Artist › Album</b>, and audiobooks into <b>Audiobooks › Author › Book</b>. Files you put in your own folders stay where you put them.</p>
+<p>The app plays songs straight from that folder. Nothing is copied, so they take no extra space. Songs you add with Add Music go into the folder too.</p>
+<p>With iCloud on in HTMLBoard, the folder goes to your other iPhones and iPads (or lives in iCloud Drive, if you chose that in HTMLBoard’s Settings).</p>
+<p>It checks the folder every time it opens. Moved or renamed files are found again automatically, by file name and size or by their title and artist tags. Your edits, play counts and playlists stay with them.</p>
+<p>Songs whose files are gone show <b>!</b> and are listed in Reconnect Music.</p>`))});
+    return items;
+  });
+}
+const missingSongs = () => songs.filter(s => missingIds.has(s.id));
+let reconnectTarget = null;            // a song id when reconnecting one song by hand
+function pickReconnect(targetId){ reconnectTarget = targetId || null; $('#pickReconnect').value = ''; $('#pickReconnect').click(); }
+const baseName = n => String(n || '').toLowerCase().replace(/\.[^.]+$/, '');
+async function attachAudio(song, f){
+  const type = f.type || (/\.m4[ab]$/i.test(f.name) ? 'audio/mp4' : 'audio/mpeg');
+  const blob = new Blob([f], {type});
+  await storeAudio(song.id, blob);
+  const d = await probeDuration(blob);
+  Object.assign(song, {file:f.name, size:f.size, type, linked:false, path:undefined}, d ? {duration:d} : {});
+  await dbPut('meta', song);
+  missingIds.delete(song.id);
+}
+$('#pickReconnect').addEventListener('change', async e => {
+  const files = Array.from(e.target.files || []); if (!files.length) return;
+  const target = reconnectTarget; reconnectTarget = null;
+  let done = 0;
+  toast('Reconnecting…', 600000);
+  try {
+    if (target) {
+      const s0 = songs.find(x => x.id === target);
+      if (s0) { await attachAudio(s0, files[0]); done = 1; }
+    } else {
+      const want = missingSongs(), used = new Set(), tagCache = new Map();
+      const tagsOf = async f => { if (!tagCache.has(f)) tagCache.set(f, await readTags(f)); return tagCache.get(f); };
+      const free = () => files.filter(f => !used.has(f));
+      for (const s1 of want) {
+        let f = free().find(x => x.name.toLowerCase() === String(s1.file || '').toLowerCase() && x.size === s1.size)
+             || free().find(x => baseName(x.name) === baseName(s1.file));
+        if (!f) {
+          for (const x of free()) {
+            const t = await tagsOf(x);
+            const title = norm(t.title || baseName(x.name)), artist = norm(t.artist || t.albumArtist || '');
+            if (title && title === norm(s1.title) && (!artist || !norm(s1.artist) || artist === norm(s1.artist) || norm(s1.artist) === 'unknownartist')) { f = x; break; }
+          }
+        }
+        if (f) { used.add(f); await attachAudio(s1, f); done++; }
+      }
+    }
+  } catch (err) { toast('Reconnect failed: ' + ((err && err.message) || err), 4000); refresh(); return; }
+  const left = missingIds.size;
+  toast(`Reconnected ${done} song${done === 1 ? '' : 's'}` + (left ? ` · ${left} still missing` : ' · all set'), 3500);
+  refresh();
+});
+function damagedView(){
+  return listView('Damaged Files', () => {
+    const items = [{label:'What happened', arrow:true, act:() => push(infoView('Damaged Files', `
+<p>These files hold only a few bytes and no audio. An HTMLBoard version saved them wrong while moving songs into the folder.</p>
+<p>The songs are still listed in your library with their info, edits and play counts. To get the audio back, use <b>Choose Files Elsewhere</b> in Reconnect Music with your original files, or restore a <b>Backup</b> made on a device where the songs still play.</p>
+<p>Removing these files is safe: they contain no music.</p>`))}];
+    damagedFiles.forEach(f => items.push({label:f.name, sub:`${f.path} · ${f.size} bytes`}));
+    if (damagedFiles.length && window.host && typeof window.host.deleteFile === 'function')
+      items.push({label:`Remove ${damagedFiles.length} Damaged File${damagedFiles.length === 1 ? '' : 's'}`, act:async () => {
+        if (!confirm(`Delete ${damagedFiles.length} damaged file${damagedFiles.length === 1 ? '' : 's'} from the music folder? They contain no audio.`)) return;
+        for (const f of damagedFiles) { try { await window.host.deleteFile(f.path); } catch (e) {} }
+        damagedFiles = []; await scanFolder(true); back(); }});
+    return items;
+  });
+}
+function reconnectView(){
+  const v = listView('Reconnect Music', () => {
+    const miss = missingSongs();
+    if (v.checking) return [{label:'Checking your library…'}];
+    if (hasFolder() && !v.autoScanned) { v.autoScanned = true; setTimeout(() => scanFolder(false), 0); }   // look in its own folder first
+    if (scanState.running) return [{label:'Looking in your music folder…', sub:folderLabel()}];
+    const dmg = damagedFiles.length ? [{label:`${damagedFiles.length} Damaged File${damagedFiles.length === 1 ? '' : 's'} in the Folder`, r:'!',
+      sub:'Saved wrong by HTMLBoard (a few bytes, no audio)', arrow:true, act:() => push(damagedView())}] : [];
+    if (!miss.length) return dmg.concat([{label:'All songs have their audio', sub:'Nothing to reconnect'}, {label:'Check Again', act:recheck}]);
+    return [
+      ...dmg,
+      ...(hasFolder() ? [{label:'Look in Music Folder Again', sub:folderLabel(), act:() => scanFolder(false)}] : []),
+      {label: hasFolder() ? 'Choose Files Elsewhere…' : `Choose Files for ${miss.length} Song${miss.length === 1 ? '' : 's'}…`,
+        sub:'Pick from anywhere; matched by name, size or tags', act:() => pickReconnect()},
+      {label:'Check Again', act:recheck},
+      ...miss.map(x => ({label:x.title, sub:`${x.artist} · was ${x.file || 'unknown file'}`, r:'!', act:() => pickReconnect(x.id)})),
+      {label:`Remove ${miss.length} Missing Song${miss.length === 1 ? '' : 's'}`, act:async () => {
+        if (!confirm(`Remove ${miss.length} song${miss.length === 1 ? '' : 's'} with missing audio? Their info and play counts are deleted.`)) return;
+        for (const x of miss) await deleteSong(x.id);
+        missingIds.clear(); refresh(); }}
+    ];
+  });
+  async function recheck(){ v.checking = true; refresh(); if (hasFolder()) await scanFolder(true); else await checkMissing(); v.checking = false; refresh(); }
+  return v;
+}
+
+async function storeAudio(id, blob){
+  // Store the file itself; read it back to confirm. If storage rejected or mangled it, store raw bytes instead.
+  let ok = false;
+  try {
+    await dbPut('audio', blob, id);
+    const back = await dbGet('audio', id);
+    ok = back instanceof Blob && back.size === blob.size;
+  } catch (e) {}
+  if (!ok) {
+    if (blob.size > 300 * 1048576) throw new Error('File too large to store here');
+    const buf = await blob.arrayBuffer();
+    await dbPut('audio', buf, id);
+    const back = await dbGet('audio', id);
+    if (!back || back.byteLength !== blob.size) throw new Error('Storage didn’t keep the file');
+  }
+}
+const isBook = s => !!s && s.kind === 'book';
+const music = () => songs.filter(s => !isBook(s));
+const books = () => songs.filter(isBook);
+function pickAudio(){ $('#pickAudio').value = ''; $('#pickAudio').click(); }
+function pickBook(){ $('#pickBook').value = ''; $('#pickBook').click(); }
+function pickFolder(){ $('#pickFolder').value = ''; $('#pickFolder').click(); }
+// kind 'auto' (Add Folder): files under an Audiobooks folder, or .m4b, are audiobooks; everything else is music
+const kindOf = f => /(^|\/)audiobooks?\//i.test(f.webkitRelativePath || '') || /\.m4b$/i.test(f.name) ? 'book' : 'song';
+async function importFiles(files, kindArg){
+  let added = 0, skipped = 0, already = 0, i = 0;
+  for (const f of files) {
+    i++;
+    const kind = kindArg === 'auto' ? kindOf(f) : kindArg;
+    if (!/^audio\//.test(f.type) && !/\.(mp3|m4a|m4b|aac|wav|ogg|flac)$/i.test(f.name)) { if (kindArg !== 'auto') skipped++; continue; }
+    if (f.size <= DAMAGED_MAX) { skipped++; continue; }                       // damaged, no audio
+    if (songs.some(s => String(s.file || '').toLowerCase() === f.name.toLowerCase() && s.size === f.size)) { already++; continue; }
+    toast(`Adding ${i} of ${files.length}…`, 600000);
+    try {
+      const tags = await readTags(f);
+      const type = f.type || (/\.m4[ab]$/i.test(f.name) ? 'audio/mp4' : 'audio/mpeg');
+      const art = tags.art ? await shrinkArt(tags.art) : null;
+      const blob = new Blob([f], {type});
+      const duration = await probeDuration(blob);
+      const base = f.name.replace(/\.[^.]+$/, '');
+      // same audio already here under another file name (same size, same title tag)
+      if (songs.some(s => s.size === f.size && norm(s.origTitle || s.title) === norm(tags.title || base))) { already++; continue; }
+      const meta = {id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8), kind,
+        duration, art, type, file: f.name, size: f.size, added: Date.now(), plays: 0,
+        origTitle: tags.title || base, origArtist: tags.artist || ''};
+      if (kind === 'book') {
+        const stripped = base.replace(/[\s._-]*(part|pt|chapter|ch|track|disc|cd)?[\s._-]*\d+$/i, '').trim();
+        const bookTitle = tags.album || (tags.mp4 ? tags.title : '') || stripped || base;
+        const author = tags.albumArtist || tags.artist || 'Unknown Author';
+        Object.assign(meta, {title: tags.title || base, artist: author, album: 'Audiobook', track: 0,
+          book: 'b:' + norm(bookTitle) + '|' + norm(author), bookTitle, part: parseInt(tags.track, 10) || 0,
+          chapters: (tags.chapters || []).filter(c => isFinite(c.start)).sort((a, b) => a.start - b.start)
+            .map((c, n) => ({start:c.start, title:c.title || `Chapter ${n + 1}`}))});
+      } else {
+        Object.assign(meta, {title: tags.title || base, artist: tags.artist || 'Unknown Artist',
+          album: tags.album || 'Unknown Album', track: parseInt(tags.track, 10) || 0});
+      }
+      if (canSaveToFolder()) {
+        // Into the app's own folder (visible in the Files app, synced with iCloud); played from there.
+        let path = null;
+        try { path = await saveChecked(blob, organizedPath(meta, f.name)); } catch (e) { if (!(e && e.saveBroken)) throw e; }
+        if (path) Object.assign(meta, {linked:true, path, file: path.split('/').pop(), modified: Date.now()});
+        else await storeAudio(meta.id, blob);                  // HTMLBoard saved it damaged: keep it inside the app instead
+      } else {
+        await storeAudio(meta.id, blob);
+      }
+      await dbPut('meta', meta);
+      songs.push(meta); added++;
+    } catch (err) { skipped++; }
+  }
+  const noun = kindArg === 'book' ? 'audiobook file' : 'song';
+  toast(`Added ${added} ${noun}${added === 1 ? '' : 's'}` + (already ? ` · ${already} already in the app` : '') + (skipped ? ` · skipped ${skipped}` : ''), 3500);
+  refresh();
+}
+$('#pickAudio').addEventListener('change', e => { const f = Array.from(e.target.files || []); if (f.length) importFiles(f, 'song'); });
+$('#pickFolder').addEventListener('change', e => { const f = Array.from(e.target.files || []); if (f.length) importFiles(f, 'auto'); });
+$('#pickBook').addEventListener('change', e => { const f = Array.from(e.target.files || []); if (f.length) importFiles(f, 'book'); });
+
+const norm = s => String(s || '').toLowerCase().replace(/\s*[\(\[][^\)\]]*[\)\]]/g, '').replace(/\s+-\s+.*$/, '').replace(/[^a-z0-9]/g, '');
+/* ---------- player ---------- */
+const audio = new Audio(); audio.preload = 'auto';
+audio.crossOrigin = 'anonymous';   // lets folder songs (served by HTMLBoard with CORS) pass through the equalizer
+let origQueue = [], queue = [], qi = -1, current = null, loadedId = null, curURL = null, pendingPos = 0;
+/* Play history: the songs actually heard, oldest first (not including the current one). PREV walks back through it,
+   so it returns to the song you last heard even after picking a song from a list or with shuffle on. Saved across restarts. */
+let playHistory = [], goingBack = false;
+
+function silentWav(){
+  const n = 400, b = new Uint8Array(44 + n), v = new DataView(b.buffer);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) b[o + i] = s.charCodeAt(i); };
+  w(0,'RIFF'); v.setUint32(4, 36 + n, true); w(8,'WAVE'); w(12,'fmt ');
+  v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,8000,true); v.setUint32(28,8000,true); v.setUint16(32,1,true); v.setUint16(34,8,true);
+  w(36,'data'); v.setUint32(40,n,true); b.fill(128, 44);
+  let s = ''; b.forEach(x => s += String.fromCharCode(x));
+  return 'data:audio/wav;base64,' + btoa(s);
+}
+const SILENT = silentWav();
+let unlocked = false;
+function unlock(){
+  if (unlocked) return; unlocked = true;
+  try {
+    if (!audio.src) {
+      audio.src = SILENT;
+      const p = audio.play();
+      if (p) p.then(() => { if (audio.src === SILENT) audio.pause(); }).catch(() => { unlocked = false; });
+    }
+  } catch (e) { unlocked = false; }
+  try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); } catch (e) {}
+}
+['touchend','click','keydown'].forEach(ev => document.addEventListener(ev, unlock, {capture:true}));
+
+function shuffleArr(a){ for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function buildQueue(startId){
+  if (settings.shuffle) { queue = [startId].concat(shuffleArr(origQueue.filter(id => id !== startId))); qi = 0; }
+  else { queue = origQueue.slice(); qi = Math.max(0, queue.indexOf(startId)); }
+}
+function playQueue(list, i, startAt = 0, opts = {}){
+  if (!list.length) return;
+  spRelease();
+  origQueue = list.map(s => s.id);
+  if (opts.inOrder) { queue = origQueue.slice(); qi = i; } else buildQueue(list[i].id);
+  pendingPos = startAt;
+  loadCurrent(true, startAt);
+}
+function setShuffle(on){
+  settings.shuffle = on; saveSettings();
+  if (current && origQueue.length && !isBook(current)) buildQueue(current.id);
+  saveLast(); updateNow();
+}
+function saveLast(){
+  if (!current) return;
+  settings.last = {orig: origQueue, queue, id: current.id, hist: playHistory.slice(-200),
+    pos: loadedId === current.id ? (audio.currentTime || 0) : pendingPos};
+  saveSettings();
+}
+async function loadCurrent(autoplay, startAt){
+  const id = queue[qi];
+  const m = songs.find(s => s.id === id);
+  if (!m) { toast('Song not found'); return; }
+  if (current && current.id !== m.id && !goingBack && !isBook(current)) {
+    playHistory.push(current.id);
+    if (playHistory.length > 200) playHistory = playHistory.slice(-200);
+  }
+  current = m; updateNow(); updateBar();
+  if (m.linked) {
+    if (!hasFolder()) { toast('This song lives in the music folder — open the app in HTMLBoard', 3500); return; }
+    if (missingIds.has(id)) { toast('This song’s file is missing — Settings → Reconnect Music', 3500); return; }
+    if (curURL) { URL.revokeObjectURL(curURL); curURL = null; }
+    loadedId = id;
+    audio.src = window.host.fileURL(m.path);
+    applyRate();
+    if (autoplay && actx && actx.state !== 'running') { try { actx.resume(); } catch (e) {} }
+    if (startAt > 0) audio.addEventListener('loadedmetadata', () => { try { audio.currentTime = startAt; } catch (e) {} }, {once:true});
+    if (autoplay) tryPlay('start');
+    else audio.load();
+    setMedia(m); saveLast(); updateNow(); updateBar();
+    return;
+  }
+  let buf;
+  try { buf = await dbGet('audio', id); } catch (e) {}
+  if (!buf) {
+    missingIds.add(id);
+    toast('This song’s audio is missing — Settings → Reconnect Music', 3500);
+    return;
+  }
+  if (queue[qi] !== id) return; // user skipped again meanwhile
+  if (curURL) URL.revokeObjectURL(curURL);
+  curURL = URL.createObjectURL(buf instanceof Blob ? buf : new Blob([buf], {type: m.type || 'audio/mpeg'}));
+  loadedId = id;
+  audio.src = curURL;
+  applyRate();
+  if (autoplay && actx && actx.state !== 'running') { try { actx.resume(); } catch (e) {} }
+  if (startAt > 0) audio.addEventListener('loadedmetadata', () => { try { audio.currentTime = startAt; } catch (e) {} }, {once:true});
+  if (autoplay) tryPlay('start');
+  else audio.load();
+  setMedia(m); saveLast(); updateNow(); updateBar();
+}
+function isPlaying(){ return !!loadedId && !audio.paused && audio.src !== SILENT; }
+/* ---------- playback diagnostics (Settings → Playback Status) ---------- */
+const playLog = [];
+const MEDIA_ERR = {1:'ABORTED (loading stopped)', 2:'NETWORK (file couldn’t be read)', 3:'DECODE (file damaged or unsupported)', 4:'SRC_NOT_SUPPORTED (format or address not supported)'};
+function plog(msg){ playLog.unshift(new Date().toLocaleTimeString() + ' · ' + msg); playLog.length = Math.min(playLog.length, 14); }
+const errText = e => e ? `${e.name || 'Error'}: ${e.message || e}` : 'unknown';
+const mediaErrText = () => audio.error ? `code ${audio.error.code} ${MEDIA_ERR[audio.error.code] || ''}${audio.error.message ? ' — ' + audio.error.message : ''}` : 'none';
+function tryPlay(why){
+  const p = audio.play();
+  if (p && p.catch) p.catch(e => {
+    plog(`play() refused (${why}): ${errText(e)} · media error ${mediaErrText()}`);
+    toast(e && e.name === 'NotAllowedError' ? 'iOS blocked playback — press play again' : `Couldn’t play: ${errText(e)}`, 4500);
+    updateBar(); updateNow();
+  });
+  return p;
+}
+['loadstart', 'loadedmetadata', 'canplay', 'playing', 'waiting', 'stalled', 'suspend', 'abort', 'emptied', 'ended'].forEach(ev =>
+  audio.addEventListener(ev, () => { if (audio.src !== SILENT && (ev !== 'suspend' || audio.paused)) plog(`${ev} @ ${fmt(audio.currentTime || 0)}`); }));
+function togglePlay(){
+  if (!current) { toast(songs.length ? 'Choose a song first' : 'Add music in Settings'); return; }
+  if (actx && actx.state !== 'running') { try { actx.resume(); } catch (e) {} }
+  if (loadedId !== current.id) {
+    const st = isBook(current) ? bookState(current.book || current.id) : null;
+    loadCurrent(true, st && st.id === current.id && !st.finished ? (st.pos || 0) : pendingPos);
+    return;
+  }
+  if (audio.paused) tryPlay('play button');
+  else audio.pause();
+}
+function next(fromEnd){
+  if (!queue.length) return;
+  const playing = fromEnd || isPlaying();
+  if (qi < queue.length - 1) qi++;
+  else if (settings.repeat === 'all') qi = 0;
+  else if (fromEnd) { audio.pause(); try { audio.currentTime = 0; } catch (e) {} updateNow(); return; }
+  else qi = 0;
+  pendingPos = 0; loadCurrent(playing, 0);
+}
+function prev(){
+  if (!queue.length) return;
+  const playing = isPlaying();          // start-over vs previous is decided in prevAction()
+  // 1. the song heard before this one
+  while (playHistory.length) {
+    const id = playHistory.pop();
+    if (!songs.some(s => s.id === id) || (current && id === current.id)) continue;
+    let i = queue.indexOf(id);
+    if (i < 0) { queue.splice(qi, 0, id); i = qi; if (!origQueue.includes(id)) origQueue.push(id); }   // not in this list: slot it in before
+    qi = i;
+    goingBack = true;
+    try { pendingPos = 0; loadCurrent(playing, 0); } finally { goingBack = false; }
+    return;
+  }
+  // 2. nothing heard before: previous in the list, or start over at the top
+  qi = qi > 0 ? qi - 1 : (settings.repeat === 'all' ? queue.length - 1 : 0);
+  pendingPos = 0; loadCurrent(playing, 0);
+}
+function applyRate(){
+  const r = isBook(current) ? (settings.bookSpeed || 1) : 1;
+  try { audio.defaultPlaybackRate = r; audio.playbackRate = r; } catch (e) {}
+}
+function skipBy(sec){
+  if (!current || loadedId !== current.id) return;
+  const dur = isFinite(audio.duration) ? audio.duration : (current.duration || 0);
+  audio.currentTime = Math.min(Math.max(0, audio.currentTime + sec), Math.max(0, dur - 0.5));
+  updateNow(true);
+}
+let countedId = null;
+audio.addEventListener('ended', () => {
+  if (audio.src === SILENT) return;
+  countedId = null;
+  if (sleepT.mode === 'end') { sleepFire(); return; }
+  if (isBook(current)) {
+    if (qi < queue.length - 1) { qi++; pendingPos = 0; loadCurrent(true, 0); }
+    else { bookSave(songs.find(s => s.id === queue[0]) || current, 0, true); toast('Finished the book'); updateNow(); updateBar(); }
+    return;
+  }
+  if (settings.repeat === 'one') { audio.currentTime = 0; audio.play().catch(() => {}); }
+  else next(true);
+});
+audio.addEventListener('play', () => { applyRate(); updateBar(); updateNow(); });
+audio.addEventListener('pause', () => {
+  updateBar(); updateNow(); saveLast();
+  if (isBook(current) && loadedId === current.id && audio.currentTime > 0 && !audio.ended) bookSave(current, audio.currentTime);
+});
+let lastSave = 0;
+audio.addEventListener('timeupdate', () => {
+  updateNow(true);
+  const n = Date.now();
+  if (n - lastSave > 5000) {
+    lastSave = n; saveLast();
+    if (isBook(current) && loadedId === current.id) { bookSave(current, audio.currentTime); updateNow(); }
+  }
+  if (current && loadedId === current.id && !isBook(current) && countedId !== current.id &&
+      audio.currentTime >= Math.min(30, (isFinite(audio.duration) ? audio.duration : 60) * 0.5)) {
+    countedId = current.id; current.plays = (current.plays || 0) + 1; current.lastPlayed = n;
+    dbPut('meta', current).catch(() => {});
+  }
+  if (sleepT.mode === 'time' && n >= sleepT.until) sleepFire();
+  else if (sleepT.mode === 'end' && sleepT.chap >= 0 && curChapterIndex() !== sleepT.chap) sleepFire();
+});
+
+/* ---------- sleep timer ---------- */
+let sleepT = {mode:null, until:0, t:null, chap:-1};
+function curChapterIndex(){
+  if (!isBook(current) || !(current.chapters || []).length || loadedId !== current.id) return -1;
+  const t = audio.currentTime; let idx = 0;
+  current.chapters.forEach((c, i) => { if (c.start <= t + 0.25) idx = i; });
+  return idx;
+}
+function setSleep(mode, minutes){
+  clearTimeout(sleepT.t); sleepT = {mode:null, until:0, t:null, chap:-1};
+  if (mode === 'time') {
+    sleepT = {mode, until:Date.now() + minutes * 60000, t:setTimeout(sleepFire, minutes * 60000), chap:-1};
+    toast(`Sleep timer: ${minutes} min`);
+  } else if (mode === 'end') {
+    sleepT.mode = 'end'; sleepT.chap = curChapterIndex();
+    toast(isBook(current) ? 'Stops at the end of this chapter' : 'Stops at the end of this song');
+  } else toast('Sleep timer off');
+  updateBar(); refresh();
+}
+function sleepFire(){
+  clearTimeout(sleepT.t); sleepT = {mode:null, until:0, t:null, chap:-1};
+  if (remote && spNow && spNow.playing) spControl('play');
+  else if (!audio.paused) audio.pause();
+  toast('Sleep timer — paused', 3000); updateBar(); refresh();
+}
+const sleepLabel = () => sleepT.mode === 'time' ? fmt((sleepT.until - Date.now()) / 1000) + ' left'
+  : sleepT.mode === 'end' ? 'End of ' + (isBook(current) ? 'chapter' : 'song') : 'Off';
+
+/* ---------- equalizer ---------- */
+const EQ_FREQS = [60, 230, 910, 3600, 14000];
+const EQ_PRESETS = {
+  off:{name:'Off', g:[0,0,0,0,0]}, bass:{name:'Bass Booster', g:[6,4,0,0,0]}, bassdown:{name:'Bass Reducer', g:[-6,-3,0,0,0]},
+  treble:{name:'Treble Booster', g:[0,0,0,3,6]}, vocal:{name:'Vocal Booster', g:[-2,0,4,3,0]}, rock:{name:'Rock', g:[4,2,-2,2,4]},
+  pop:{name:'Pop', g:[-1,2,4,2,-1]}, jazz:{name:'Jazz', g:[3,1,-1,1,3]}, classical:{name:'Classical', g:[4,2,0,2,3]},
+  loudness:{name:'Loudness', g:[5,1,0,1,5]}, spoken:{name:'Spoken Word', g:[-4,-1,3,3,0]}
+};
+let eq = null;
+function applyEQ(){
+  const p = EQ_PRESETS[settings.eq] || EQ_PRESETS.off;
+  if (!eq) {
+    if (settings.eq === 'off') return;
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const src = actx.createMediaElementSource(audio), pre = actx.createGain();
+      const filters = EQ_FREQS.map((f, i) => {
+        const b = actx.createBiquadFilter();
+        b.type = i === 0 ? 'lowshelf' : i === EQ_FREQS.length - 1 ? 'highshelf' : 'peaking';
+        b.frequency.value = f; b.Q.value = 1; return b;
+      });
+      src.connect(pre); let node = pre; filters.forEach(b => { node.connect(b); node = b; }); node.connect(actx.destination);
+      eq = {pre, filters};
+      if (actx.state === 'suspended') actx.resume();
+    } catch (e) { settings.eq = 'off'; saveSettings(); toast('The equalizer isn’t available here'); return; }
+  }
+  eq.filters.forEach((b, i) => { b.gain.value = p.g[i]; });
+  eq.pre.gain.value = Math.pow(10, -Math.max(0, ...p.g) * 0.6 / 20);   // headroom so boosts don't clip
+}
+audio.addEventListener('loadedmetadata', async () => {
+  if (current && loadedId === current.id && isFinite(audio.duration) && Math.abs((current.duration || 0) - audio.duration) > 1) {
+    current.duration = audio.duration; try { await dbPut('meta', current); } catch (e) {}
+  }
+  updateNow();
+});
+audio.addEventListener('error', () => {
+  if (audio.src && audio.src !== SILENT) plog('error · media error ' + mediaErrText());
+  if (current && current.linked && loadedId === current.id) { missingIds.add(current.id); toast('Couldn’t open this file — scanning the music folder…', 3000); scanFolder(true); return; } if (audio.src && audio.src !== SILENT && loadedId) toast('This file can’t be played'); });
+
+function setMedia(m){
+  if (!('mediaSession' in navigator)) return;
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({title:m.title, artist:m.artist, album:m.album,
+      artwork: m.art ? [{src:m.art, sizes:'240x240', type:'image/jpeg'}] : []});
+  } catch (e) {}
+}
+if ('mediaSession' in navigator) {
+  const h = (a, f) => { try { navigator.mediaSession.setActionHandler(a, f); } catch (e) {} };
+  h('play', () => togglePlay()); h('pause', () => audio.pause());
+  h('nexttrack', () => nextAction()); h('previoustrack', () => prevAction());
+  h('seekforward', () => skipBy(30)); h('seekbackward', () => skipBy(-15));
+}
+
+/* ---------- views ---------- */
+const stack = [];
+const top = () => stack[stack.length - 1];
+function listView(title, items){ return {kind:'list', title, items, sel:0, _items:[]}; }
+function push(v){ stack.push(v); render(); }
+function back(){
+  const v = top();
+  if (v && v.selecting) { v.selecting = null; v.sel = Math.max(0, v.sel - SEL_HEAD); render(); return; }   // BACK leaves selection first
+  if (stack.length > 1) { stack.pop(); render(); }
+}
+function refresh(){ render(); }
+
+const byTitle = (a, b) => a.title.localeCompare(b.title, undefined, {sensitivity:'base'});
+const sortedSongs = () => music().sort(byTitle);
+
+/* ---------- multi-select + edit song info ----------
+   Hold a song in any song list to start selecting. Tap / OK toggles songs. Edits change the
+   app's own library (title, artist, album, track); the audio files themselves are not rewritten. */
+const SEL_HEAD = 4;
+function selectHeader(v, list){
+  const n = v.selecting.size, all = list.length && list.every(s => v.selecting.has(s.id));
+  return [
+    {label:`Edit Info for ${n} Song${n === 1 ? '' : 's'}…`, act:() => {
+      if (!n) { toast('Select at least one song'); return; }
+      push(editInfoView(list.filter(s => v.selecting.has(s.id)).map(s => s.id), v)); }},
+    {label:`Add ${n} to Quick List`, act:() => { if (!n) return; otgAdd(list.filter(s => v.selecting.has(s.id))); v.selecting = null; refresh(); }},
+    {label: all ? 'Select None' : 'Select All', act:() => { v.selecting = new Set(all ? [] : list.map(s => s.id)); refresh(); }},
+    {label:'Done', act:() => { v.selecting = null; v.sel = Math.max(0, v.sel - SEL_HEAD); refresh(); }}
+  ];
+}
+function selectRows(v, list, subFn){
+  return list.map(s => ({label:s.title, sub:subFn(s), r: v.selecting.has(s.id) ? '✓' : '○',
+    act:() => { v.selecting.has(s.id) ? v.selecting.delete(s.id) : v.selecting.add(s.id); refresh(); }}));
+}
+function startSelect(v, s, i){
+  v.selecting = new Set([s.id]); v.sel = i + SEL_HEAD; haptic('success'); refresh();
+  toast('Tap songs to select them, then Edit Info', 2200);
+}
+function songsView(title, listFn, rFn, empty){
+  const v = listView(title, () => {
+    const list = listFn();
+    if (!list.length) return [empty || {label:'No songs yet', sub:'Select to add music', act:pickAudio}];
+    const sub = s => `${s.artist} · ${s.album}`;
+    if (v.selecting) return selectHeader(v, list).concat(selectRows(v, list, sub));
+    return list.map((s, i) => ({label:s.title, sub:sub(s), r: missingIds.has(s.id) ? '!' : rFn ? rFn(s) : '', song:s,
+      act:() => { playQueue(list, i); push(nowView()); }, hold:() => startSelect(v, s, i), selectHold:true}));
+  });
+  return v;
+}
+function commonValue(list, key){ const v0 = list[0] ? list[0][key] : ''; return list.every(x => x[key] === v0) ? v0 : null; }
+function editInfoView(ids, fromView){
+  const draft = {};
+  const v = listView(ids.length === 1 ? 'Edit Info' : `Edit ${ids.length} Songs`, () => {
+    const list = ids.map(id => songs.find(s => s.id === id)).filter(Boolean);
+    if (!list.length) return [{label:'Songs removed', act:back}];
+    const show = key => key in draft ? draft[key] : (commonValue(list, key) ?? 'Mixed');
+    const ask = (key, label, single) => {
+      const cur = key in draft ? draft[key] : commonValue(list, key);
+      const val = prompt(`${label}${list.length > 1 ? ` for ${list.length} songs` : ''}`, cur == null ? '' : String(cur));
+      if (val === null) return;
+      const t = val.trim();
+      if (key === 'track') { const n = parseInt(t, 10); if (t && !(n >= 0)) { toast('Track must be a number'); return; } draft.track = t ? n : 0; }
+      else if (!t) { if (single || cur != null) toast(label + ' can’t be empty'); return; }
+      else draft[key] = t;
+      refresh();
+    };
+    const rows = [];
+    if (list.length === 1) rows.push({label:'Title', r:String(show('title')), act:() => ask('title', 'Title', true)});
+    rows.push({label:'Artist', r:String(show('artist')), act:() => ask('artist', 'Artist')});
+    rows.push({label:'Album', r:String(show('album')), act:() => ask('album', 'Album')});
+    if (list.length === 1) rows.push({label:'Track Number', r: show('track') ? String(show('track')) : '—', act:() => ask('track', 'Track number', true)});
+    else rows.push({label:'Number Tracks 1–' + list.length, sub:'In the order shown in the list', r: draft.renumber ? '✓' : '',
+      act:() => { draft.renumber = !draft.renumber; refresh(); }});
+    const changed = Object.keys(draft).length > 0;
+    rows.push({label: changed ? 'Save Changes' : 'Save Changes (nothing changed)', act:() => saveInfo(list, draft, fromView)});
+    rows.push({label:'Cancel', act:back});
+    return rows;
+  });
+  return v;
+}
+async function saveInfo(list, draft, fromView){
+  if (!Object.keys(draft).length) { back(); return; }
+  try {
+    for (let i = 0; i < list.length; i++) {
+      const s = list[i];
+      if (!('origTitle' in s)) s.origTitle = s.title;          // keep what the file's tags said, for reconnecting
+      if (!('origArtist' in s)) s.origArtist = s.artist;
+      ['title', 'artist', 'album', 'track'].forEach(k => { if (k in draft) s[k] = draft[k]; });
+      if (draft.renumber) s.track = i + 1;
+      await dbPut('meta', s);
+    }
+  } catch (e) { toast('Couldn’t save: ' + ((e && e.message) || e), 3500); return; }
+  if (current && list.includes(current)) setMedia(current);
+  if (fromView) fromView.selecting = null;
+  toast(`Updated ${list.length} song${list.length === 1 ? '' : 's'}`);
+  back();
+}
+function groupView(title, key, subKey){
+  return listView(title, () => {
+    const map = new Map();
+    music().forEach(s => { if (!map.has(s[key])) map.set(s[key], s); });
+    const keys = Array.from(map.keys()).sort((a, b) => a.localeCompare(b, undefined, {sensitivity:'base'}));
+    if (!keys.length) return [{label:'No songs yet', sub:'Select to add music', act:pickAudio}];
+    return keys.map(k => {
+      const groupSongs = () => music().filter(s => s[key] === k)
+        .sort((a, b) => a.album.localeCompare(b.album) || (a.track - b.track) || byTitle(a, b));
+      const n = groupSongs().length;
+      return {label:k, sub: subKey ? `${map.get(k)[subKey]} · ${n} song${n === 1 ? '' : 's'}` : `${n} song${n === 1 ? '' : 's'}`, arrow:true,
+        act:() => push(songsView(k, groupSongs)), hold:() => otgAdd(groupSongs()), groupIds:() => groupSongs().map(s => s.id)};
+    });
+  });
+}
+function shuffleAll(){
+  const list = music();
+  if (!list.length) { toast('Add music in Settings'); return; }
+  settings.shuffle = true; saveSettings();
+  playQueue(list, Math.floor(Math.random() * list.length));
+  push(nowView());
+}
+const deviceName = () => (settings.name || '').trim() || APP_NAME;
+const mainView = () => listView(deviceName(), () => {
+  const a = [
+    {label:'Music', arrow:true, act:() => push(musicView())},
+    {label:'Audiobooks', arrow:true, act:() => push(booksView())},
+    {label:'Shuffle Songs', act:shuffleAll},
+    {label:'Extras', arrow:true, act:() => push(extrasView())},
+    {label:'Settings', arrow:true, act:() => push(settingsView())}
+  ];
+  if (current) a.push({label:'Now Playing', arrow:true, act:() => push(nowView())});
+  return a;
+});
+const musicView = () => listView('Music', () => [
+  {label:'Album Flip', arrow:true, act:() => push(flowView())},
+  {label:'Playlists', arrow:true, act:() => push(playlistsView())},
+  {label:'Artists', arrow:true, act:() => push(groupView('Artists', 'artist'))},
+  {label:'Albums', arrow:true, act:() => push(groupView('Albums', 'album', 'artist'))},
+  {label:'Songs', r:String(music().length), arrow:true, act:() => push(songsView('Songs', sortedSongs))},
+  {label:'Most Played', arrow:true, act:() => push(songsView('Most Played',
+    () => music().filter(s => s.plays > 0).sort((a, b) => (b.plays - a.plays) || ((b.lastPlayed || 0) - (a.lastPlayed || 0))).slice(0, 25),
+    s => String(s.plays), {label:'Nothing played yet', sub:'Songs count after 30 seconds of listening'}))},
+  {label:'Recently Added', arrow:true, act:() => push(songsView('Recently Added',
+    () => music().sort((a, b) => (b.added || 0) - (a.added || 0)).slice(0, 50)))},
+  {label:'Add Music…', sub:'MP3, M4A, WAV from Files', act:pickAudio},
+  {label:'Add Folder…', sub:'Every song in a folder and its subfolders; skips ones already here', act:pickFolder}
+]);
+
+/* ---------- Quick List (internally 'otg') ---------- */
+function otgAdd(list){
+  const ids = list.filter(s => s && !isBook(s)).map(s => s.id);
+  if (!ids.length) return;
+  settings.otg = (settings.otg || []).concat(ids); saveSettings();
+  haptic('success');
+  toast(ids.length === 1 ? 'Added to Quick List' : `Added ${ids.length} songs to Quick List`);
+}
+const otgSongs = () => (settings.otg || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
+const OTG_HELP = `<p>Hold the OK button (or hold a row on the screen) on any song, album or artist, then choose Add to Quick List.</p>
+<p>Open Quick List to play it, save it as a named playlist, or clear it. Hold a song inside Quick List to remove it.</p>
+<p>Song options also include Play Next, Browse Album and Browse Artist.</p>
+<p>Saved playlists stay on this device.</p>`;
+const playlistsView = () => listView('Playlists', () => {
+  const items = [{label:'Quick List', r:String(otgSongs().length), arrow:true, act:() => push(otgView())}];
+  playlists.filter(p => p.source === 'otg').sort(byName).forEach(p => {
+    const n = p.songIds.filter(id => songs.some(s => s.id === id)).length;
+    items.push({label:p.name, sub:`${n} song${n === 1 ? '' : 's'}`, arrow:true, act:() => push(savedListView(p.id))});
+  });
+  items.push({label:'How Quick List Works', arrow:true, act:() => push(infoView('Quick List', OTG_HELP))});
+  return items;
+});
+const otgView = () => listView('Quick List', () => {
+  const list = otgSongs();
+  if (!list.length) return [{label:'Empty', sub:'Hold a song or the OK button to add songs'}];
+  return list.map((s, i) => ({label:s.title, sub:s.artist, act:() => { playQueue(list, i); push(nowView()); },
+      holdLabel:'Remove from Quick List', hold:() => { if (confirm(`Remove “${s.title}” from Quick List?`)) { settings.otg = otgSongs().map(x => x.id); settings.otg.splice(i, 1); saveSettings(); refresh(); } }}))
+    .concat([
+      {label:'Save Playlist…', act:saveOtg},
+      {label:'Clear Playlist', act:() => { if (confirm('Clear Quick List?')) { settings.otg = []; saveSettings(); refresh(); } }}]);
+});
+async function saveOtg(){
+  const ids = otgSongs().map(s => s.id); if (!ids.length) return;
+  const name = (prompt('Name this playlist', 'Quick List ' + (playlists.filter(p => p.source === 'otg').length + 1)) || '').trim();
+  if (!name) return;
+  const pl = {id:'otg' + Date.now().toString(36), source:'otg', name, songIds:ids, created:Date.now()};
+  try { await dbPut('playlists', pl); } catch (e) { toast('Couldn’t save the playlist'); return; }
+  playlists.push(pl); settings.otg = []; saveSettings();
+  toast(`Saved “${name}”`); refresh();
+}
+function savedListView(id){
+  const p0 = playlists.find(p => p.id === id);
+  const v = listView(p0 ? p0.name : 'Playlist', () => {
+    const p = playlists.find(x => x.id === id);
+    if (!p) return [{label:'Playlist removed', act:back}];
+    const list = p.songIds.map(i => songs.find(s => s.id === i)).filter(Boolean);
+    if (v.selecting) return selectHeader(v, list).concat(selectRows(v, list, s => s.artist));
+    return list.map((s, i) => ({label:s.title, sub:s.artist, song:s, act:() => { playQueue(list, i); push(nowView()); }, hold:() => startSelect(v, s, i), selectHold:true}))
+      .concat({label:'Delete Playlist', act:async () => {
+        if (!confirm(`Delete “${p.name}”? Your songs stay.`)) return;
+        await dbDel('playlists', p.id); playlists = playlists.filter(x => x.id !== p.id); back(); }});
+  });
+  return v;
+}
+
+/* ---------- audiobooks ---------- */
+function bookGroups(){
+  const map = new Map();
+  books().forEach(b => {
+    const k = b.book || b.id;
+    if (!map.has(k)) map.set(k, {key:k, title:b.bookTitle || b.title, author:b.artist, art:b.art, parts:[]});
+    const g = map.get(k); g.parts.push(b); if (!g.art && b.art) g.art = b.art;
+  });
+  map.forEach(g => g.parts.sort((a, b) => (a.part - b.part) || a.file.localeCompare(b.file, undefined, {numeric:true})));
+  return Array.from(map.values()).sort((a, b) => a.title.localeCompare(b.title, undefined, {sensitivity:'base'}));
+}
+const bookState = key => (settings.bookPos || {})[key] || null;
+const bookTotal = g => g.parts.reduce((t, p) => t + (p.duration || 0), 0);
+function bookElapsed(g){
+  const st = bookState(g.key); if (!st || st.finished) return 0;
+  let t = 0; for (const p of g.parts) { if (p.id === st.id) return t + (st.pos || 0); t += p.duration || 0; }
+  return 0;
+}
+function bookProgress(g){
+  const st = bookState(g.key);
+  if (st && st.finished) return 'Finished';
+  const tot = bookTotal(g), el = bookElapsed(g);
+  if (!el) return 'Not started';
+  return tot ? Math.min(99, Math.round(el / tot * 100)) + '%' : fmt(el);
+}
+function bookSave(m, pos, finished){
+  if (!m) return;
+  settings.bookPos = settings.bookPos || {};
+  settings.bookPos[m.book || m.id] = {id:m.id, pos:pos || 0, finished:!!finished, at:Date.now()};
+  saveSettings();
+}
+function playBook(g, partId, at){
+  const i = Math.max(0, g.parts.findIndex(p => p.id === partId));
+  playQueue(g.parts, i, at || 0, {inOrder:true});
+  push(nowView());
+}
+function resumeBook(g){
+  const st = bookState(g.key);
+  if (st && !st.finished && g.parts.some(p => p.id === st.id)) playBook(g, st.id, st.pos);
+  else playBook(g, g.parts[0].id, 0);
+}
+function bookChapters(g){
+  if (g.parts.length > 1) return g.parts.map((p, i) => ({title:p.title || `Part ${i + 1}`, partId:p.id, start:0}));
+  const p = g.parts[0];
+  return (p.chapters || []).map(c => ({title:c.title, partId:p.id, start:c.start}));
+}
+const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2];
+const speedLabel = () => (settings.bookSpeed || 1) + '×';
+function cycleSpeed(){
+  const i = SPEEDS.indexOf(settings.bookSpeed || 1);
+  settings.bookSpeed = SPEEDS[(i + 1) % SPEEDS.length]; saveSettings(); applyRate();
+  toast('Speed ' + speedLabel()); refresh();
+}
+const booksView = () => listView('Audiobooks', () => {
+  const items = bookGroups().map(g => ({label:g.title, sub:`${g.author} · ${bookProgress(g)}`, arrow:true, act:() => push(bookView(g.key))}));
+  if (!items.length) items.push({label:'No audiobooks yet', sub:'DRM-free books from Libro.fm, LibriVox or your own files'});
+  items.push({label:'Add Audiobook…', sub:'MP3, M4A or M4B · pick all parts of a book together', act:pickBook});
+  items.push({label:'Playback Speed', r:speedLabel(), act:cycleSpeed});
+  return items;
+});
+function bookView(key){
+  const g0 = bookGroups().find(g => g.key === key);
+  return listView(g0 ? g0.title : 'Audiobook', () => {
+    const g = bookGroups().find(x => x.key === key);
+    if (!g) return [{label:'Audiobook removed', act:back}];
+    const st = bookState(key), started = !!st && !st.finished && bookElapsed(g) > 5;
+    const items = [{label: started ? `Resume · ${fmt(bookElapsed(g))}` : (st && st.finished ? 'Listen Again' : 'Play'),
+      sub:`${g.author} · ${fmt(bookTotal(g))} · ${bookProgress(g)}`, act:() => resumeBook(g)}];
+    const chs = bookChapters(g);
+    if (chs.length > 1) items.push({label: g.parts.length > 1 ? 'Parts' : 'Chapters', r:String(chs.length), arrow:true, act:() => push(chaptersView(key))});
+    if (started) items.push({label:'Start Over', act:() => playBook(g, g.parts[0].id, 0)});
+    items.push({label:'Playback Speed', r:speedLabel(), act:cycleSpeed});
+    items.push({label:'Delete Audiobook', act:async () => {
+      if (!confirm(`Delete “${g.title}”?`)) return;
+      for (const p of g.parts) await deleteSong(p.id);
+      if (settings.bookPos) { delete settings.bookPos[key]; saveSettings(); }
+      back(); }});
+    return items;
+  });
+}
+function chaptersView(key){
+  return listView('Chapters', () => {
+    const g = bookGroups().find(x => x.key === key); if (!g) return [{label:'Audiobook removed', act:back}];
+    const here = isBook(current) && (current.book || current.id) === key;
+    const cur = !here ? -1 : g.parts.length > 1 ? g.parts.findIndex(p => p.id === current.id) : curChapterIndex();
+    return bookChapters(g).map((c, i) => ({label:c.title, sub: c.start ? fmt(c.start) : '', r: i === cur ? '♪' : '',
+      act:() => playBook(g, c.partId, c.start)}));
+  });
+}
+function bookNowInfo(){
+  const g = bookGroups().find(x => x.key === (current.book || current.id));
+  if (g && g.parts.length > 1) return {label:`Part ${qi + 1} of ${queue.length}`, sub:current.title};
+  const chs = current.chapters || [], i = curChapterIndex();
+  if (chs.length > 1 && i >= 0) return {label:`Chapter ${i + 1} of ${chs.length}`, sub:chs[i].title};
+  return {label:'Audiobook', sub:''};
+}
+
+/* ---------- Album Flip ---------- */
+function albumList(){
+  const map = new Map();
+  music().forEach(s => {
+    const k = s.album + '\u0000' + s.artist;
+    if (!map.has(k)) map.set(k, {album:s.album, artist:s.artist, art:s.art, songs:[]});
+    const a = map.get(k); a.songs.push(s); if (!a.art && s.art) a.art = s.art;
+  });
+  map.forEach(a => a.songs.sort((x, y) => (x.track - y.track) || byTitle(x, y)));
+  return Array.from(map.values()).sort((a, b) => a.album.localeCompare(b.album, undefined, {sensitivity:'base'}));
+}
+function flowView(){ return {kind:'flow', title:'Album Flip', sel:0}; }
+let flowEls = new Map();
+function renderFlow(v){
+  v._albums = albumList();
+  const body = $('#body');
+  if (!v._albums.length) { body.innerHTML = '<div class="empty">No albums yet.<br>Add music first.</div>'; return; }
+  v.sel = Math.min(Math.max(0, v.sel), v._albums.length - 1);
+  body.innerHTML = '<div class="flow"><div class="stage" id="stage"></div><div class="flow-cap"><div class="t" id="flowT"></div><div class="a" id="flowA"></div></div></div>';
+  flowEls = new Map(); drawFlow(v);
+}
+function drawFlow(v){
+  const stage = $('#stage'); if (!stage || !v._albums) return;
+  const W = stage.clientWidth || 300, H = stage.clientHeight || 200;
+  const S = Math.max(60, Math.min(H * 0.64, W * 0.46));
+  const keep = new Set();
+  for (let i = Math.max(0, v.sel - 4); i <= Math.min(v._albums.length - 1, v.sel + 4); i++) {
+    keep.add(i);
+    let el = flowEls.get(i);
+    if (!el) {
+      const a = v._albums[i];
+      el = document.createElement('div'); el.className = 'cover'; el.dataset.i = String(i);
+      el.innerHTML = a.art ? `<img src="${a.art}" alt="">` : '♪';
+      stage.appendChild(el); flowEls.set(i, el);
+    }
+    const d = i - v.sel, ad = Math.abs(d), sg = Math.sign(d);
+    const x = d === 0 ? 0 : sg * (S * 0.62 + (ad - 1) * S * 0.24);
+    el.style.width = el.style.height = S + 'px';
+    el.style.marginLeft = (-S / 2) + 'px';
+    el.style.top = Math.max(4, (H - S) * 0.3) + 'px';
+    el.style.transform = `translateX(${x}px) translateZ(${d === 0 ? 0 : -S * 0.45}px) rotateY(${d === 0 ? 0 : -sg * 62}deg)`;
+    el.style.zIndex = String(100 - ad);
+  }
+  flowEls.forEach((el, i) => { if (!keep.has(i)) { el.remove(); flowEls.delete(i); } });
+  const a = v._albums[v.sel];
+  $('#flowT').textContent = a.album; $('#flowA').textContent = a.artist;
+}
+function flowOpen(v){
+  const a = v._albums && v._albums[v.sel]; if (!a) return;
+  push(songsView(a.album, () => albumList().find(x => x.album === a.album && x.artist === a.artist)?.songs || []));
+}
+
+/* ---------- Brick ---------- */
+let game = null;
+function brickView(){ return {kind:'game', title:'Brick'}; }
+function brickColors(){
+  const cs = getComputedStyle(document.documentElement), col = k => (cs.getPropertyValue('--' + k) || '').trim() || '#888';
+  return {bg:col('screen'), fg:col('fg'), dim:col('dim'), rows:[col('hi1'), col('fg'), col('hi2'), col('dim')]};
+}
+function startBrick(v){
+  const body = $('#body');
+  body.innerHTML = '<canvas class="cv" id="cv"></canvas>';
+  const cv = $('#cv'), r = body.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const W = Math.max(200, r.width || 300), H = Math.max(150, r.height || 220);
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  let ctx = null; try { ctx = cv.getContext('2d'); } catch (e) {}
+  if (!ctx) { body.innerHTML = '<div class="empty">Games aren’t supported here.</div>'; return; }
+  ctx.scale(dpr, dpr);
+  game = {v, cv, ctx, W, H, score:0, lives:3, level:1, state:'ready', last:0, col:brickColors()};
+  brickLevel();
+  const g = game;
+  cv.addEventListener('pointerdown', e => { e.preventDefault(); g.drag = {x:e.clientX, moved:false}; });
+  cv.addEventListener('pointermove', e => {
+    if (!g.drag) return;
+    const rr = cv.getBoundingClientRect();
+    g.px = Math.min(g.W - g.pw, Math.max(0, e.clientX - rr.left - g.pw / 2));
+    if (Math.abs(e.clientX - g.drag.x) > 6) g.drag.moved = true;
+    if (g.state === 'ready') g.bx = g.px + g.pw / 2;
+  });
+  cv.addEventListener('pointerup', () => { if (g.drag && !g.drag.moved) brickCenter(); g.drag = null; });
+  g.raf = requestAnimationFrame(brickLoop);
+}
+function brickLevel(){
+  const g = game, cols = 8, rows = 4 + Math.min(3, g.level - 1), topY = 26, gap = 3;
+  const bw = (g.W - gap * (cols + 1)) / cols, bh = Math.max(8, g.H * 0.045);
+  g.bricks = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++)
+    g.bricks.push({x:gap + c * (bw + gap), y:topY + r * (bh + gap), w:bw, h:bh, row:r, alive:true});
+  g.pw = g.W * 0.24; g.ph = 7; g.px = (g.W - g.pw) / 2; g.py = g.H - 16;
+  brickServe();
+}
+function brickServe(){
+  const g = game;
+  g.br = Math.max(4, g.W * 0.014); g.bx = g.px + g.pw / 2; g.by = g.py - g.br - 1; g.vx = 0; g.vy = 0;
+  g.state = g.lives > 0 ? 'ready' : 'over';
+}
+function brickLaunch(){
+  const g = game, sp = g.H * (0.8 + 0.1 * (g.level - 1)), ang = (-60 - Math.random() * 60) * Math.PI / 180;
+  g.vx = Math.cos(ang) * sp; g.vy = Math.sin(ang) * sp; g.state = 'play';
+}
+function brickCenter(){
+  const g = game; if (!g) return;
+  if (g.state === 'over') { g.score = 0; g.lives = 3; g.level = 1; brickLevel(); }
+  else if (g.state === 'ready') brickLaunch();
+  else if (g.state === 'play') g.state = 'paused';
+  else if (g.state === 'paused') g.state = 'play';
+}
+function brickMove(dir){
+  const g = game; if (!g) return;
+  g.px = Math.min(g.W - g.pw, Math.max(0, g.px + dir * g.W / 14));
+  if (g.state === 'ready') g.bx = g.px + g.pw / 2;
+}
+function brickLoop(t){
+  const g = game;
+  if (!g || top() !== g.v) { game = null; return; }
+  const dt = g.last ? Math.min(0.04, (t - g.last) / 1000) : 0; g.last = t;
+  if (g.state === 'play' && !document.hidden) brickStep(dt);
+  brickDraw(); g.raf = requestAnimationFrame(brickLoop);
+}
+function brickStep(dt){
+  const g = game;
+  g.bx += g.vx * dt; g.by += g.vy * dt;
+  if (g.bx < g.br) { g.bx = g.br; g.vx = Math.abs(g.vx); }
+  if (g.bx > g.W - g.br) { g.bx = g.W - g.br; g.vx = -Math.abs(g.vx); }
+  if (g.by < g.br + 18) { g.by = g.br + 18; g.vy = Math.abs(g.vy); }
+  if (g.vy > 0 && g.by + g.br >= g.py && g.by + g.br <= g.py + g.ph + 8 && g.bx >= g.px - g.br && g.bx <= g.px + g.pw + g.br) {
+    const hit = ((g.bx - g.px) / g.pw) * 2 - 1, sp = Math.hypot(g.vx, g.vy) * 1.01, ang = (-90 + Math.max(-1, Math.min(1, hit)) * 60) * Math.PI / 180;
+    g.vx = Math.cos(ang) * sp; g.vy = Math.sin(ang) * sp; g.by = g.py - g.br; haptic('light');
+  }
+  for (const b of g.bricks) {
+    if (!b.alive) continue;
+    if (g.bx + g.br > b.x && g.bx - g.br < b.x + b.w && g.by + g.br > b.y && g.by - g.br < b.y + b.h) {
+      b.alive = false; g.score += 10; haptic('selection');
+      const ox = Math.min(g.bx + g.br - b.x, b.x + b.w - (g.bx - g.br)), oy = Math.min(g.by + g.br - b.y, b.y + b.h - (g.by - g.br));
+      if (ox < oy) g.vx = -g.vx; else g.vy = -g.vy;
+      break;
+    }
+  }
+  if (g.bricks.every(b => !b.alive)) { g.level++; g.score += 100; haptic('success'); brickLevel(); return; }
+  if (g.by - g.br > g.H) {
+    g.lives--; haptic('error');
+    if (g.lives <= 0 && g.score > (settings.brickHigh || 0)) { settings.brickHigh = g.score; saveSettings(); }
+    brickServe();
+  }
+}
+function brickDraw(){
+  const g = game, c = g.ctx, k = g.col;
+  c.fillStyle = k.bg; c.fillRect(0, 0, g.W, g.H);
+  g.bricks.forEach(b => { if (!b.alive) return; c.fillStyle = k.rows[b.row % k.rows.length]; c.fillRect(b.x, b.y, b.w, b.h); });
+  c.fillStyle = k.fg; c.fillRect(g.px, g.py, g.pw, g.ph);
+  c.beginPath(); c.arc(g.bx, g.by, g.br, 0, Math.PI * 2); c.fill();
+  c.fillStyle = k.dim; c.font = '600 12px -apple-system, Helvetica, Arial, sans-serif'; c.textBaseline = 'top';
+  c.textAlign = 'left'; c.fillText(`Score ${g.score}`, 6, 4);
+  c.textAlign = 'right'; c.fillText(`${'●'.repeat(Math.max(0, g.lives))}  Lv ${g.level}`, g.W - 6, 4);
+  const msg = g.state === 'ready' ? 'Press OK to launch' : g.state === 'paused' ? 'Paused'
+    : g.state === 'over' ? `Game over · Best ${settings.brickHigh || 0}` : '';
+  if (msg) {
+    c.textAlign = 'center'; c.fillStyle = k.fg; c.font = '600 14px -apple-system, Helvetica, Arial, sans-serif';
+    c.fillText(msg, g.W / 2, g.H * 0.6);
+    if (g.state === 'over') { c.font = '12px -apple-system, Helvetica, Arial, sans-serif'; c.fillStyle = k.dim; c.fillText('Press OK to play again', g.W / 2, g.H * 0.6 + 20); }
+  }
+}
+
+/* ---------- Extras ---------- */
+const extrasView = () => listView('Extras', () => [
+  {label:'Sleep Timer', r:sleepLabel(), arrow:true, act:() => push(sleepView())},
+  {label:'Games', arrow:true, act:() => push(gamesView())}
+]);
+const SLEEP_OPTS = [['Off', 0], ['15 Minutes', 15], ['30 Minutes', 30], ['45 Minutes', 45], ['60 Minutes', 60], ['90 Minutes', 90]];
+const sleepView = () => listView('Sleep Timer', () => {
+  const items = sleepT.mode ? [{label:'Remaining', r:sleepLabel()}] : [];
+  SLEEP_OPTS.forEach(([label, m]) => items.push({label, r: m === 0 && !sleepT.mode ? '✓' : '', act:() => setSleep(m ? 'time' : null, m)}));
+  items.push({label:'End of Song or Chapter', r: sleepT.mode === 'end' ? '✓' : '', act:() => setSleep('end')});
+  return items;
+});
+const gamesView = () => listView('Games', () => [
+  {label:'Brick', sub:'Turn the dial to move · OK to launch or pause', r: settings.brickHigh ? 'Best ' + settings.brickHigh : '', act:() => push(brickView())}
+]);
+const eqView = () => {
+  const v = listView('Equalizer', () => Object.keys(EQ_PRESETS).map(k => ({label:EQ_PRESETS[k].name, r: settings.eq === k ? '✓' : '', act:() => {
+    if (k !== 'off' && !eq && !settings.eqWarned) {
+      if (!confirm('The equalizer sends audio through the web audio engine. On some iPhones music may pause when the screen locks. Turn it on?')) return;
+      settings.eqWarned = true;
+    }
+    settings.eq = k; saveSettings(); applyEQ(); refresh(); }})));
+  v.sel = Math.max(0, Object.keys(EQ_PRESETS).indexOf(settings.eq));
+  return v;
+};
+async function deleteMany(list, what){
+  const inFolder = list.filter(s => s.linked).length;
+  if (!confirm(`Delete ${what} (${list.length} song${list.length === 1 ? '' : 's'})?` +
+    (inFolder ? `\n\n${inFolder} of them ${inFolder === 1 ? 'is a file' : 'are files'} in your music folder and will be deleted from Files too.` : ''))) return false;
+  let i = 0;
+  for (const s of list) { i++; if (list.length > 3) toast(`Deleting ${i} of ${list.length}…`, 600000); await deleteSong(s.id); }
+  toast(`Deleted ${list.length} song${list.length === 1 ? '' : 's'}`, 2500);
+  return true;
+}
+function deleteGroupView(title, key){
+  return listView(title, () => {
+    const groups = new Map();
+    music().forEach(s => { const k = s[key] || 'Unknown'; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(s); });
+    const keys = [...groups.keys()].sort((a, b) => a.localeCompare(b, undefined, {sensitivity:'base'}));
+    if (!keys.length) return [{label:'No songs', act:back}];
+    return keys.map(k => ({label:k, sub:`${groups.get(k).length} song${groups.get(k).length === 1 ? '' : 's'}` + (key === 'album' ? ' · ' + groups.get(k)[0].artist : '') + ' · select to delete',
+      act:async () => { if (await deleteMany(groups.get(k), `${key === 'album' ? 'the album' : 'everything by'} “${k}”`)) refresh(); }}));
+  });
+}
+const manageView = () => listView('Delete Songs', () => {
+  const list = sortedSongs();
+  if (!list.length) return [{label:'No songs', act:back}];
+  return [{label:'By Artist', arrow:true, act:() => push(deleteGroupView('Delete by Artist', 'artist'))},
+          {label:'By Album', arrow:true, act:() => push(deleteGroupView('Delete by Album', 'album'))}].concat(list.map(s => ({label:s.title, sub:`${s.artist} · select to delete`, act:async () => {
+    if (!confirm(`Delete “${s.title}”?`)) return;
+    await deleteSong(s.id); refresh();
+  }})));
+});
+async function deleteSong(id, opts = {}){
+  const gone = songs.find(s => s.id === id);
+  playHistory = playHistory.filter(x => x !== id);
+  if (!opts.keepFile && gone && gone.linked && gone.path && window.host && typeof window.host.deleteFile === 'function') {
+    try { await window.host.deleteFile(gone.path); } catch (e) {}
+  }
+  await dbDel('audio', id); await dbDel('meta', id);
+  songs = songs.filter(s => s.id !== id);
+  origQueue = origQueue.filter(x => x !== id);
+  const wasCurrent = current && current.id === id;
+  const curId = current && current.id;
+  queue = queue.filter(x => x !== id);
+  if (wasCurrent) {
+    audio.pause(); audio.removeAttribute('src'); audio.load();
+    loadedId = null; current = null; qi = -1;
+    settings.last = null; saveSettings(); updateBar();
+  } else if (curId) { qi = queue.indexOf(curId); saveLast(); }
+}
+function renameDevice(){
+  const v = prompt('Name shown at the top of the main menu and under the screen', deviceName());
+  if (v === null) return;
+  settings.name = v.trim().slice(0, 24) || APP_NAME; saveSettings();
+  if (stack[0]) stack[0].title = deviceName();
+  setBrand();
+  toast('Renamed to ' + deviceName()); refresh();
+}
+const settingsView = () => listView('Settings', () => [
+  {label:'Name', r:deviceName(), act:renameDevice},
+  {label:'Shuffle', r: settings.shuffle ? 'On' : 'Off', act:() => { setShuffle(!settings.shuffle); refresh(); }},
+  {label:'Repeat', r: {off:'Off', all:'All', one:'One'}[settings.repeat], act:() => {
+    settings.repeat = {off:'all', all:'one', one:'off'}[settings.repeat]; saveSettings(); refresh(); }},
+  {label:'Body Color', r:(BODIES[settings.body] || BODIES.black).name, arrow:true, act:() => push(colorView('Body Color', 'body', BODIES))},
+  {label:'Dial & Key Color', r:(WHEELS[settings.wheel] || WHEELS.auto).name, arrow:true, act:() => push(colorView('Dial & Key Color', 'wheel', WHEELS))},
+  {label:'Screen', r:(SCREENS[settings.screen] || SCREENS.dark).name, arrow:true, act:() => push(colorView('Screen', 'screen', SCREENS))},
+  {label:'Equalizer', r:(EQ_PRESETS[settings.eq] || EQ_PRESETS.off).name, arrow:true, act:() => push(eqView())},
+  {label:'Audiobook Speed', r:speedLabel(), act:cycleSpeed},
+  {label:'Clicker', r: settings.clicker ? 'On' : 'Off', act:() => { settings.clicker = !settings.clicker; saveSettings(); refresh(); }},
+  {label:'Add Music…', act:pickAudio},
+  {label:'Add Folder…', sub:'Skips songs already in the app', act:pickFolder},
+  {label:'Music Folder', r: hasFolder() ? String(songs.filter(x => x.linked).length) : '', arrow:true, act:() => push(folderView())},
+  {label:'Reconnect Music', r: missingIds.size ? missingIds.size + ' missing' : '', arrow:true, act:() => push(reconnectView())},
+  {label:'Delete Songs', arrow:true, act:() => push(manageView())},
+  {label:'Back Up Library', sub:'All songs, audiobooks and playlists in one file', act:backupLibrary},
+  {label:'Restore from Backup…', act:() => { $('#pickBackup').value = ''; $('#pickBackup').click(); }},
+  {label:'Export Library (JSON)', sub:'Song list and playlists, no audio', act:exportJSON},
+  {label:'Copy Song List', act:copyList},
+  {label:'About', arrow:true, act:() => push(aboutView())},
+  {label:'Erase Everything', act:eraseAll}
+]);
+function aboutView(){
+  const v = infoView('About', `<p>${music().length} songs · ${bookGroups().length} audiobooks · ${playlists.filter(p => p.source === 'otg').length} playlists</p><p>Everything is stored on this device and works offline.</p><p id="usage"></p>`);
+  if (navigator.storage && navigator.storage.estimate) navigator.storage.estimate().then(e => {
+    const el = document.getElementById('usage'); if (el) el.textContent = `Storage used: ${(e.usage / 1048576).toFixed(1)} MB`;
+  }).catch(() => {});
+  return v;
+}
+function infoView(title, html){ return {kind:'info', title, html}; }
+function nowView(){
+  npMode = hasHostVolume() ? 'volume' : 'scrub';
+  if (hasHostVolume() && typeof window.host.getVolume === 'function') {
+    try { Promise.resolve(window.host.getVolume()).then(v => { if (typeof v === 'number') sysVol = v; }).catch(() => {}); } catch (e) {}
+  }
+  return {kind:'now', title:'Now Playing'};
+}
+
+function downloadBlob(blob, name){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 120000);
+}
+function exportJSON(){
+  const data = {app:'mp3-player', exported:new Date().toISOString(),
+    songs: music().map(s => ({title:s.title, artist:s.artist, album:s.album, track:s.track, duration:Math.round(s.duration || 0), plays:s.plays || 0, file:s.file})),
+    audiobooks: bookGroups().map(g => ({title:g.title, author:g.author, parts:g.parts.length, progress:bookProgress(g)})),
+    playlists: playlists.filter(p => p.source === 'otg').map(p => ({name:p.name, songs:p.songIds.map(id => (songs.find(s => s.id === id) || {}).title).filter(Boolean)}))
+  };
+  downloadBlob(new Blob([JSON.stringify(data, null, 2)], {type:'application/json'}), 'mp3-player-library.json');
+}
+
+/* ---------- full backup (audio included) ----------
+   Format: "CWPBAK01" + 4-byte header length + JSON header + audio files back to back.
+   Backups from the earlier player use the same format and restore here too. */
+const BACKUP_MAGIC = 'CWPBAK01';
+async function backupLibrary(){
+  if (!songs.length && !playlists.length) { toast('Nothing to back up yet'); return; }
+  toast('Preparing backup…', 600000);
+  try {
+    const parts = [], entries = []; let offset = 0;
+    for (const s of songs) {
+      const data = await dbGet('audio', s.id); if (!data) continue;
+      const blob = data instanceof Blob ? data : new Blob([data], {type:s.type});
+      entries.push({meta:s, offset, size:blob.size}); parts.push(blob); offset += blob.size;
+    }
+    const header = {app:'mp3-player', version:1, created:new Date().toISOString(), songs:entries,
+      playlists, otg:settings.otg || [], bookPos:settings.bookPos || {}};
+    const hb = new TextEncoder().encode(JSON.stringify(header));
+    const lb = new Uint8Array(4); new DataView(lb.buffer).setUint32(0, hb.length);
+    const file = new Blob([new TextEncoder().encode(BACKUP_MAGIC), lb, hb].concat(parts), {type:'application/octet-stream'});
+    const date = new Date().toISOString().slice(0, 10);
+    downloadBlob(file, `mp3-player-backup-${date}.cwpbackup`);
+    toast(`Backup ready · ${(file.size / 1048576).toFixed(1)} MB`, 3500);
+  } catch (e) { toast('Backup failed: ' + ((e && e.message) || e), 4000); }
+}
+async function restoreLibrary(file){
+  try {
+    const magic = new TextDecoder().decode(await file.slice(0, 8).arrayBuffer());
+    if (magic !== BACKUP_MAGIC) { toast('That isn’t a player backup file', 3500); return; }
+    const len = new DataView(await file.slice(8, 12).arrayBuffer()).getUint32(0);
+    const header = JSON.parse(new TextDecoder().decode(await file.slice(12, 12 + len).arrayBuffer()));
+    const base = 12 + len; let added = 0, skipped = 0, n = 0;
+    for (const e of header.songs || []) {
+      n++;
+      const m = e.meta;
+      if (!m || songs.some(s => s.id === m.id || (s.file === m.file && s.size === m.size && (s.kind || 'song') === (m.kind || 'song')))) { skipped++; continue; }
+      toast(`Restoring ${n} of ${header.songs.length}…`, 600000);
+      await storeAudio(m.id, file.slice(base + e.offset, base + e.offset + e.size, m.type));
+      await dbPut('meta', m); songs.push(m); added++;
+    }
+    for (const pl of header.playlists || []) {
+      if (playlists.some(p => p.id === pl.id)) continue;
+      await dbPut('playlists', pl); playlists.push(pl);
+    }
+    const have = new Set(settings.otg || []);
+    settings.otg = (settings.otg || []).concat((header.otg || []).filter(id => !have.has(id)));
+    settings.bookPos = Object.assign({}, header.bookPos || {}, settings.bookPos || {});
+    saveSettings();
+    toast(`Restored ${added} file${added === 1 ? '' : 's'}` + (skipped ? ` · ${skipped} already here` : ''), 3500);
+    refresh();
+  } catch (e) { toast('Restore failed: ' + ((e && e.message) || e), 4000); }
+}
+$('#pickBackup').addEventListener('change', e => { const f = (e.target.files || [])[0]; if (f) restoreLibrary(f); });
+async function copyList(){
+  const text = sortedSongs().map(s => `${s.title} — ${s.artist} (${s.album})`).join('\n') || '(no songs)';
+  try {
+    if (window.host && window.host.copy) await window.host.copy(text);
+    else await navigator.clipboard.writeText(text);
+    toast('Song list copied');
+  } catch (e) { toast('Couldn’t copy'); }
+}
+async function eraseAll(){
+  if (!confirm('Erase all songs and playlists from this app?')) return;
+  audio.pause(); audio.removeAttribute('src'); audio.load();
+  await dbClear('audio'); await dbClear('meta'); await dbClear('playlists');
+  songs = []; playlists = []; queue = []; origQueue = []; qi = -1; current = null; loadedId = null; playHistory = [];
+  settings.last = null; settings.otg = []; settings.bookPos = {}; saveSettings();
+  stack.length = 1; render(); updateBar(); toast('Erased');
+}
+
+/* ---------- rendering ---------- */
+const fmt = s => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+function render(){
+  const v = top(), body = $('#body');
+  $('#title').textContent = v.title;
+  if (v.kind === 'list') {
+    v._items = v.items();
+    v.sel = Math.min(Math.max(0, v.sel), Math.max(0, v._items.length - 1));
+    body.innerHTML = `<div class="list" id="list">` + v._items.map((it, i) =>
+      `<div class="row${i === v.sel ? ' sel' : ''}" data-i="${i}"><div class="txt"><div class="l">${esc(it.label)}</div>${it.sub ? `<div class="s">${esc(it.sub)}</div>` : ''}</div>` +
+      `${it.r ? `<span class="r">${esc(it.r)}</span>` : ''}${it.arrow ? '<span class="r">›</span>' : ''}</div>`).join('') + '</div>';
+    if (v.scroll) $('#list').scrollTop = v.scroll;
+    ensureVisible();
+  } else if (v.kind === 'info') {
+    body.innerHTML = `<div class="info" id="info">${v.html}</div>`;
+  } else if (v.kind === 'flow') {
+    renderFlow(v);
+  } else if (v.kind === 'game') {
+    if (!game || game.v !== v) startBrick(v);
+  } else if (v.kind === 'now') {
+    if (!current && !remote) { body.innerHTML = '<div class="empty">Nothing playing.<br>Choose a song from Music.</div>'; return; }
+    shownArtId = null;
+    body.innerHTML = `<div class="np"><div class="np-top"><div class="art" id="art"></div><div class="np-meta">
+      <div class="np-c" id="npc"></div><div class="np-t" id="npt"></div><div class="np-a" id="npa"></div><div class="np-al" id="npal"></div><div class="np-f" id="npf"></div></div></div>
+      <div class="prog"><div class="fill" id="fill"></div></div><div class="times"><span id="tcur"></span><span id="tleft"></span></div></div>`;
+    updateNow();
+  }
+}
+let shownArtId = null;
+function updateNow(timeOnly){
+  const v = top(); if (!v || v.kind !== 'now') return;
+  if (!current) { if (!timeOnly) render(); return; }
+  if (!$('#fill')) { render(); return; }
+  const loaded = loadedId === current.id;
+  const dur = loaded && isFinite(audio.duration) ? audio.duration : (current.duration || 0);
+  const pos = loaded ? audio.currentTime : pendingPos;
+  $('#fill').style.width = dur ? Math.min(100, pos / dur * 100) + '%' : '0%';
+  $('#tcur').textContent = fmt(pos);
+  $('#tleft').textContent = '-' + fmt(dur - pos);
+  if (timeOnly) return;
+  if (isBook(current)) {
+    const info = bookNowInfo();
+    $('#npc').textContent = `${info.label} · ${speedLabel()}`;
+    $('#npt').textContent = current.bookTitle || current.title;
+    $('#npa').textContent = current.artist;
+    $('#npal').textContent = info.sub;
+    $('#npf').textContent = sleepT.mode ? 'Sleep: ' + sleepLabel() : '';
+  } else {
+    $('#npc').textContent = `${qi + 1} of ${queue.length}`;
+    $('#npt').textContent = current.title;
+    $('#npa').textContent = current.artist;
+    $('#npal').textContent = current.album;
+    $('#npf').textContent = [settings.shuffle ? 'Shuffle' : '', settings.repeat !== 'off' ? 'Repeat ' + settings.repeat : '',
+      sleepT.mode ? 'Sleep: ' + sleepLabel() : ''].filter(Boolean).join(' · ');
+  }
+  { const mt = npModeText(); if (mt) $('#npf').textContent = mt; }
+  const art = $('#art');
+  if (shownArtId !== current.id || !art.firstChild) {
+    shownArtId = current.id;
+    art.innerHTML = current.art ? `<img src="${current.art}" alt="">` : '♪';
+  }
+}
+function updateBar(){
+  const playing = remote ? !!(spNow && spNow.playing) : isPlaying();
+  const state = remote ? (playing ? '▶' : '❚❚') : playing ? '▶' : (current && loadedId ? '❚❚' : '');
+  $('#ind').textContent = (sleepT.mode ? '☾' : '') + state;
+  const led = document.getElementById('led'); if (led) led.classList.toggle('on', playing);
+}
+function ensureVisible(){
+  const l = $('#list'), v = top(); if (!l || !v) return;
+  const r = l.children[v.sel]; if (!r) return;
+  if (r.offsetTop < l.scrollTop) l.scrollTop = r.offsetTop;
+  else if (r.offsetTop + r.offsetHeight > l.scrollTop + l.clientHeight) l.scrollTop = r.offsetTop + r.offsetHeight - l.clientHeight;
+  v.scroll = l.scrollTop;
+}
+function setSel(i){
+  const v = top(), l = $('#list'); if (!l) return;
+  const old = l.children[v.sel]; if (old) old.classList.remove('sel');
+  v.sel = i;
+  const n = l.children[v.sel]; if (n) n.classList.add('sel');
+  ensureVisible();
+}
+
+/* ---------- hardware controls ----------
+   Hold BACK: main menu · Hold PLAY: turn off (pause + dark screen; any press wakes)
+   Hold NEXT/PREV: fast-forward / rewind · PREV once: start over · PREV twice: previous song or chapter
+   Hold OK: options (Add to Quick List, Play Next, Browse Album/Artist)
+   OK on Now Playing: cycles what the dial does (scrub → shuffle → repeat, or speed for audiobooks, volume when HTMLBoard offers it) */
+let asleep = false, npMode = 'scrub', npModeT = null, scanT = null, lastPrevAt = 0;
+const deckEl = document.querySelector('.deck');
+function powerOff(){
+  if (remote && spNow && spNow.playing) spControl('play');
+  if (!audio.paused) audio.pause();
+  asleep = true; deckEl.classList.add('asleep'); haptic('heavy');
+}
+function wake(){ asleep = false; deckEl.classList.remove('asleep'); haptic('light'); }
+document.getElementById('offscr').addEventListener('click', e => { e.stopPropagation(); wake(); });
+function curPosSec(){
+  if (remote) return spPos() / 1000;
+  if (current && loadedId === current.id) return audio.currentTime || 0;
+  return pendingPos || 0;
+}
+function seekRel(sec){
+  if (remote) {
+    if (!spNow || !spNow.dur) return;
+    spNow.pos = Math.min(Math.max(0, spPos() + sec * 1000), spNow.dur - 1000); spNow.at = Date.now();
+    updateNow(true); spScheduleSeek(); return;
+  }
+  if (!current) return;
+  if (loadedId === current.id) skipBy(sec);
+  else { pendingPos = Math.min(Math.max(0, pendingPos + sec), Math.max(0, (current.duration || 0) - 0.5)); updateNow(true); }
+}
+function seekAbs(sec){
+  if (remote) { if (spNow) { spNow.pos = sec * 1000; spNow.at = Date.now(); updateNow(true); spScheduleSeek(); } return; }
+  if (current && loadedId === current.id) { audio.currentTime = sec; updateNow(true); } else { pendingPos = sec; updateNow(true); }
+}
+function startScan(dir){
+  stopScan();
+  const t0 = Date.now();
+  toast(dir > 0 ? 'Fast-forward' : 'Rewind', 900);
+  scanT = setInterval(() => {
+    const held = (Date.now() - t0) / 1000;
+    seekRel(dir * (held < 2 ? 2 : held < 5 ? 5 : 10));
+    haptic('selection');
+  }, 250);
+}
+function stopScan(){ if (scanT) { clearInterval(scanT); scanT = null; } }
+function bookNav(dir){
+  const chs = current.chapters || [], multi = queue.length > 1;
+  const playing = isPlaying();
+  if (multi) {
+    if (dir > 0) { if (qi < queue.length - 1) { qi++; pendingPos = 0; loadCurrent(playing, 0); } else toast('Last part'); }
+    else if (dir === 0) seekAbs(0);
+    else if (qi > 0) { qi--; pendingPos = 0; loadCurrent(playing, 0); } else seekAbs(0);
+    return;
+  }
+  if (chs.length > 1 && loadedId === current.id) {
+    const i = Math.max(0, curChapterIndex());
+    if (dir > 0) { if (i < chs.length - 1) seekAbs(chs[i + 1].start); else toast('Last chapter'); }
+    else if (dir === 0) seekAbs(chs[i].start);
+    else seekAbs(chs[Math.max(0, i - 1)].start);
+    return;
+  }
+  if (dir !== 0) skipBy(dir > 0 ? 30 : -15); else seekAbs(0);
+}
+function nextAction(){
+  if (remote) spControl('next');
+  else if (isBook(current)) bookNav(1);
+  else next();
+}
+function prevAction(){
+  const now = Date.now(), quick = now - lastPrevAt < 900; lastPrevAt = now;
+  let into = curPosSec();
+  if (!remote && isBook(current) && !(queue.length > 1) && (current.chapters || []).length > 1 && loadedId === current.id) {
+    const i = Math.max(0, curChapterIndex()); into = audio.currentTime - current.chapters[i].start;
+  }
+  const restart = into > 3 && !quick;           // once: start over · twice: previous
+  if (remote) { if (restart) seekAbs(0); else spControl('prev'); }
+  else if (isBook(current)) bookNav(restart ? 0 : -1);
+  else if (restart) seekAbs(0);
+  else prev();
+}
+/* Volume: iOS ignores the volume property of web audio, so the dial can only change volume through
+   HTMLBoard's host.setVolume() (phone volume). With it, the dial controls volume by default
+   on Now Playing and OK switches to the scrubber. Without it, volume is left out. */
+const hasHostVolume = () => !!(window.host && typeof window.host.setVolume === 'function');
+let sysVol = null, volShownAt = 0, volHideT = null;
+function markVol(){ volShownAt = Date.now(); clearTimeout(volHideT); volHideT = setTimeout(() => updateNow(), 3050); }
+window.addEventListener('hostvolume', e => { if (e && typeof e.detail === 'number') { sysVol = e.detail; markVol(); updateNow(); } });
+function npModes(){
+  const vol = hasHostVolume() ? ['volume'] : [];
+  if (remote) return vol.concat(['scrub', 'shuffle']);
+  if (isBook(current)) return vol.concat(['scrub', 'speed']);
+  return vol.concat(['scrub', 'shuffle', 'repeat']);
+}
+const npDefault = () => npModes()[0];
+function bumpNpMode(){
+  clearTimeout(npModeT);
+  if (npMode !== npDefault()) npModeT = setTimeout(() => { npMode = npDefault(); updateNow(); }, 6000);
+}
+function cycleNpMode(){
+  const m = npModes(); npMode = m[(m.indexOf(npMode) + 1) % m.length];
+  bumpNpMode(); updateNow();
+}
+const REPEATS = ['off', 'all', 'one'];
+function volBar(){ const n = Math.round(sysVol * 16); return 'Volume ' + '▮'.repeat(n) + '▯'.repeat(16 - n); }
+function npModeText(){
+  if (hasHostVolume() && sysVol != null && Date.now() - volShownAt < 3000) return volBar();   // any recent volume change
+  if (npMode === 'shuffle') return 'Shuffle: ' + ((remote ? spNow && spNow.shuffle : settings.shuffle) ? 'On' : 'Off') + ' · turn the dial';
+  if (npMode === 'repeat') return 'Repeat: ' + {off:'Off', all:'All', one:'One'}[settings.repeat] + ' · turn the dial';
+  if (npMode === 'speed') return 'Speed: ' + speedLabel() + ' · turn the dial';
+  if (npMode === 'volume') {
+    return '';                                  // the bar shows only while the volume changes (above)
+  }
+  if (npMode === 'scrub' && npDefault() === 'volume') return 'Scrub · turn the dial';
+  return '';
+}
+function npAdjust(dir){
+  bumpNpMode(); tick();
+  if (npMode === 'shuffle') {
+    const want = dir > 0;
+    if (remote) { if (spNow && !!spNow.shuffle !== want) spShuffle(); }
+    else if (settings.shuffle !== want) setShuffle(want);
+  } else if (npMode === 'repeat') {
+    settings.repeat = REPEATS[Math.min(REPEATS.length - 1, Math.max(0, REPEATS.indexOf(settings.repeat) + dir))]; saveSettings();
+  } else if (npMode === 'speed') {
+    const i = Math.min(SPEEDS.length - 1, Math.max(0, SPEEDS.indexOf(settings.bookSpeed || 1) + dir));
+    settings.bookSpeed = SPEEDS[i]; saveSettings(); applyRate();
+  } else if (npMode === 'volume' && hasHostVolume()) {
+    sysVol = Math.min(1, Math.max(0, Math.round(((sysVol == null ? 0.5 : sysVol) + dir / 16) * 16) / 16));   // 16 steps
+    markVol();
+    try {
+      const r = window.host.setVolume(sysVol);
+      if (r && typeof r.then === 'function') r.then(v => { if (typeof v === 'number') { sysVol = v; updateNow(); } }).catch(e => toast('Volume: ' + ((e && e.message) || e)));
+    } catch (e) { toast('Volume: ' + ((e && e.message) || e)); }
+  }
+  updateNow();
+}
+function optionsView(title, items){ return listView(title, () => items.concat({label:'Cancel', act:back})); }
+function songOptions(s){
+  const items = [{label:'Add to Quick List', act:() => { back(); otgAdd([s]); }}];
+  if (current && !isBook(current) && !remote && queue.length && current.id !== s.id)
+    items.push({label:'Play Next', act:() => { back(); queue.splice(qi + 1, 0, s.id); if (!origQueue.includes(s.id)) origQueue.push(s.id); saveLast(); toast('Plays next'); }});
+  items.push({label:'Edit Info…', act:() => { back(); push(editInfoView([s.id])); }});
+  items.push({label:'Browse Album', act:() => { back(); push(songsView(s.album, () => music().filter(x => x.album === s.album && x.artist === s.artist)
+    .sort((a, b) => (a.track - b.track) || byTitle(a, b)))); }});
+  items.push({label:'Browse Artist', act:() => { back(); push(songsView(s.artist, () => music().filter(x => x.artist === s.artist)
+    .sort((a, b) => a.album.localeCompare(b.album) || (a.track - b.track) || byTitle(a, b)))); }});
+  return optionsView(s.title, items);
+}
+
+/* ---------- input ---------- */
+function scroll(dir){
+  if (asleep) { wake(); return; }
+  const v = top();
+  if (v.kind === 'list') {
+    const n = Math.min(Math.max(0, v.sel + dir), v._items.length - 1);
+    if (n !== v.sel) { setSel(n); tick(); }
+  } else if (v.kind === 'info') {
+    const el = $('#info'); if (el) el.scrollTop += dir * 36; tick();
+  } else if (v.kind === 'now' && npMode !== 'scrub' && (npMode !== 'volume' || hasHostVolume()) && (remote || current)) {
+    npAdjust(dir);
+  } else if (v.kind === 'now' && remote) {
+    spSeek(dir);
+  } else if (v.kind === 'now' && current) {
+    const loaded = loadedId === current.id, step = isBook(current) ? 15 : 5;
+    const dur = loaded && isFinite(audio.duration) ? audio.duration : (current.duration || 0);
+    if (loaded) audio.currentTime = Math.min(Math.max(0, audio.currentTime + dir * step), Math.max(0, dur - 0.5));
+    else pendingPos = Math.min(Math.max(0, pendingPos + dir * step), Math.max(0, dur - 0.5));
+    tick(); updateNow(true);
+  } else if (v.kind === 'flow' && v._albums && v._albums.length) {
+    const n = Math.min(Math.max(0, v.sel + dir), v._albums.length - 1);
+    if (n !== v.sel) { v.sel = n; drawFlow(v); tick(); }
+  } else if (v.kind === 'game') {
+    brickMove(dir); tick();
+  }
+}
+function select(){
+  if (asleep) { wake(); return; }
+  const v = top();
+  if (v.kind === 'list') { const it = v._items[v.sel]; if (it && it.act) it.act(); }
+  else if (v.kind === 'flow') flowOpen(v);
+  else if (v.kind === 'game') brickCenter();
+  else if (v.kind === 'now') { if (current || remote) cycleNpMode(); else back(); }
+  else back();
+}
+function flashLabel(z){
+  document.querySelectorAll(`.btnrow [data-z="${z}"]`).forEach(el => {
+    el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 150);
+  });
+}
+function press(z){
+  flashLabel(z);
+  tick('light');
+  if (asleep) { wake(); return; }
+  if (z === 'menu') back();
+  else if (z === 'next') nextAction();
+  else if (z === 'prev') prevAction();
+  else if (z === 'play') { if (remote) spControl('play'); else togglePlay(); }
+}
+function holdZone(z){
+  flashLabel(z);
+  if (asleep) { wake(); return; }
+  if (z === 'menu') { tick('medium'); stopScan(); stack.length = 1; render(); }
+  else if (z === 'play') powerOff();
+  else if (z === 'next' || z === 'prev') { tick('medium'); startScan(z === 'next' ? 1 : -1); }
+}
+
+const wheel = $('#wheel');
+let drag = null;
+function geo(e){
+  const r = wheel.getBoundingClientRect();
+  const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+  return {a: Math.atan2(dy, dx) * 180 / Math.PI, d: Math.hypot(dx, dy) / (r.width / 2)};
+}
+let gripRot = 0;
+/* the four hardware keys: press, or hold */
+document.querySelectorAll('#btnrow [data-z]').forEach(b => {
+  let t = null, held = false;
+  b.addEventListener('pointerdown', e => {
+    e.preventDefault(); held = false; clearTimeout(t);
+    t = setTimeout(() => { held = true; holdZone(b.dataset.z); }, 550);
+  });
+  b.addEventListener('pointerup', () => { clearTimeout(t); if (held) stopScan(); else press(b.dataset.z); });
+  b.addEventListener('pointercancel', () => { clearTimeout(t); stopScan(); });
+  b.addEventListener('click', e => e.preventDefault());
+});
+/* the jog dial: turning scrolls; the knurl and pointer turn with your finger */
+wheel.addEventListener('pointerdown', e => {
+  if (e.target.closest('#center')) return;
+  e.preventDefault();
+  try { wheel.setPointerCapture(e.pointerId); } catch (err) {}
+  const g = geo(e);
+  drag = {id:e.pointerId, last:g.a, acc:0, moved:0};
+});
+wheel.addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.id) return;
+  const g = geo(e);
+  let d = g.a - drag.last; if (d > 180) d -= 360; if (d < -180) d += 360;
+  drag.last = g.a; drag.acc += d; drag.moved += Math.abs(d);
+  gripRot += d; const gr = document.getElementById('grip'); if (gr) gr.style.transform = `rotate(${gripRot}deg)`;
+  const STEP = 18;
+  while (drag.acc >= STEP) { drag.acc -= STEP; scroll(1); }
+  while (drag.acc <= -STEP) { drag.acc += STEP; scroll(-1); }
+});
+wheel.addEventListener('pointerup', e => { if (drag && e.pointerId === drag.id) drag = null; });
+wheel.addEventListener('pointercancel', () => { drag = null; });
+/* hold (long-press) for Quick List: OK button, list rows and Album Flip */
+let holdT = null, held = false, holdXY = null;
+function holdStart(fn, e){
+  held = false; clearTimeout(holdT); holdXY = e ? {x:e.clientX, y:e.clientY} : null;
+  holdT = setTimeout(() => { holdT = null; if (fn()) held = true; }, 550);
+}
+function holdCancel(){ clearTimeout(holdT); holdT = null; }
+function holdAction(){
+  if (asleep) { wake(); return true; }
+  const v = top();
+  haptic('medium');
+  if (v.kind === 'list') {
+    const it = v._items[v.sel]; if (!it) return false;
+    if (it.selectHold && it.hold) { it.hold(); return true; }
+    if (it.holdLabel && it.hold) { push(optionsView(it.label, [{label:it.holdLabel, act:() => { back(); it.hold(); }}])); return true; }
+    if (it.song) { push(songOptions(it.song)); return true; }
+    if (it.groupIds) {
+      const ids = it.groupIds();
+      push(optionsView(it.label, [{label:'Add to Quick List', act:() => { back(); it.hold(); }},
+        {label:`Edit Info for All ${ids.length} Song${ids.length === 1 ? '' : 's'}…`, act:() => { back(); push(editInfoView(ids)); }},
+        {label:`Delete All ${ids.length} Song${ids.length === 1 ? '' : 's'}…`, act:async () => {
+          const list = ids.map(id => songs.find(x => x.id === id)).filter(Boolean);
+          if (await deleteMany(list, `“${it.label}”`)) { back(); refresh(); } }}]));
+      return true;
+    }
+    if (it.hold) { push(optionsView(it.label, [{label:'Add to Quick List', act:() => { back(); it.hold(); }}])); return true; }
+    return false;
+  }
+  if (v.kind === 'now' && current && !remote && !isBook(current)) { push(songOptions(current)); return true; }
+  if (v.kind === 'flow' && v._albums && v._albums[v.sel]) {
+    const a = v._albums[v.sel];
+    push(optionsView(a.album, [
+      {label:'Add to Quick List', act:() => { back(); otgAdd(a.songs); }},
+      {label:'Shuffle Album', act:() => { back(); settings.shuffle = true; saveSettings(); playQueue(a.songs, Math.floor(Math.random() * a.songs.length)); push(nowView()); }}]));
+    return true;
+  }
+  return false;
+}
+const center = $('#center');
+center.addEventListener('pointerdown', e => holdStart(holdAction, e));
+['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => center.addEventListener(ev, holdCancel));
+center.addEventListener('click', e => { e.stopPropagation(); if (held) { held = false; return; } tick('medium'); select(); });
+
+const bodyEl = $('#body');
+bodyEl.addEventListener('pointerdown', e => {
+  const row = e.target.closest('.row'), cover = e.target.closest('.cover');
+  if (row) { const i = +row.dataset.i; holdStart(() => { setSel(i); return holdAction(); }, e); }
+  else if (cover && top().kind === 'flow') { const i = +cover.dataset.i; holdStart(() => { const v = top(); v.sel = i; drawFlow(v); return holdAction(); }, e); }
+});
+bodyEl.addEventListener('pointermove', e => {
+  if (holdT && holdXY && Math.hypot(e.clientX - holdXY.x, e.clientY - holdXY.y) > 8) holdCancel();
+});
+['pointerup', 'pointercancel'].forEach(ev => bodyEl.addEventListener(ev, holdCancel));
+bodyEl.addEventListener('click', e => {
+  if (held) { held = false; return; }
+  const cover = e.target.closest('.cover');
+  if (cover && top().kind === 'flow') {
+    const v = top(), i = +cover.dataset.i;
+    if (i === v.sel) { tick('light'); flowOpen(v); } else { v.sel = i; drawFlow(v); tick(); }
+    return;
+  }
+  const row = e.target.closest('.row'); if (!row) return;
+  const i = +row.dataset.i; setSel(i); tick('light'); select();
+});
+$('#body').addEventListener('scroll', e => { const v = top(); if (v.kind === 'list' && e.target.id === 'list') v.scroll = e.target.scrollTop; }, true);
+
+document.addEventListener('keydown', e => {
+  const k = e.key;
+  if (k === 'ArrowDown') { scroll(1); e.preventDefault(); }
+  else if (k === 'ArrowUp') { scroll(-1); e.preventDefault(); }
+  else if (k === 'Enter') { select(); e.preventDefault(); }
+  else if (k === 'Escape' || k === 'Backspace') { back(); e.preventDefault(); }
+  else if (k === ' ') { press('play'); e.preventDefault(); }
+  else if (k === 'ArrowRight') press('next');
+  else if (k === 'ArrowLeft') press('prev');
+});
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { saveLast(); if (isBook(current) && loadedId === current.id) bookSave(current, audio.currentTime); }
+  else {
+    if (actx && actx.state === 'suspended' && (eq || !audio.paused)) { try { actx.resume(); } catch (e) {} }
+    // back from the Files app (or anywhere): pick up songs added or deleted there
+    if (hasFolder() && !scanState.running && Date.now() - (scanState.last || 0) > 5000) scanFolder(true);
+  }
+});
+window.addEventListener('pagehide', saveLast);
+
+/* ---------- start ---------- */
+async function start(){
+  stack.push(mainView());
+  setBrand();
+  try {
+    db = await openDB();
+    [songs, playlists] = await Promise.all([dbAll('meta'), dbAll('playlists')]);
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  } catch (e) { toast('Storage unavailable — songs won’t be saved', 4000); }
+  const L = settings.last;
+  if (L && L.queue) {
+    const ids = new Set(songs.map(s => s.id));
+    origQueue = (L.orig || []).filter(id => ids.has(id));
+    queue = L.queue.filter(id => ids.has(id));
+    if (queue.length) {
+      qi = Math.max(0, queue.indexOf(L.id));
+      current = songs.find(s => s.id === queue[qi]) || null;
+      pendingPos = current && current.id === L.id ? (L.pos || 0) : 0;
+    }
+    playHistory = (L.hist || []).filter(id => ids.has(id));
+  }
+  if (settings.eq && settings.eq !== 'off') applyEQ();
+  applyGen();
+  render(); updateBar();
+  if (!songs.length && !hasFolder()) toast('Settings → Add Music to get started', 3000);
+  if (hasFolder()) scanFolder(true)
+    .then(async () => { if (canSaveToFolder() && copiedSongs().length && !localStorage.getItem('mp3p-moved-to-folder')) {
+      await moveToFolder(true); localStorage.setItem('mp3p-moved-to-folder', String(Date.now())); } })
+    .then(() => { if (damagedFiles.length) toast(`${damagedFiles.length} damaged file${damagedFiles.length === 1 ? '' : 's'} in your music folder — Settings → Reconnect Music`, 5000); })
+    .then(async () => {                                   // one-time offer to tidy loose files
+      const loose = songs.filter(isLoose).length;
+      if (loose && canOrganize() && !localStorage.getItem('mp3p-organize-asked')) {
+        localStorage.setItem('mp3p-organize-asked', String(Date.now()));
+        if (confirm(`${loose} song${loose === 1 ? ' is' : 's are'} loose at the top of your music folder. Sort ${loose === 1 ? 'it' : 'them'} into Music › Artist › Album folders?`)) await organizeFolder(false);
+      } })
+    .then(() => checkMissing()).then(n => { if (n) { toast(`${n} song${n === 1 ? '' : 's'} need reconnecting — Settings → Reconnect Music`, 4000); refresh(); } });
+  else if (songs.length) checkMissing().then(n => { if (n) { toast(`${n} song${n === 1 ? '' : 's'} need reconnecting — Settings → Reconnect Music`, 4000); refresh(); } });
+}
+start();
+})();
+</script>
+</body>
+</html>

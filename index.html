@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HTMLBoard Tools: try them here, keep them on your iPhone</title>
+<meta name="description" content="Small tools made with AI. Try each one in your browser, then download it and keep it on your iPhone or iPad with HTMLBoard.">
+<meta property="og:title" content="HTMLBoard Tools">
+<meta property="og:description" content="Small tools made with AI. Try them here, keep them on your iPhone with HTMLBoard.">
+<meta property="og:image" content="img/engine-lab.jpg">
+<style>
+:root{
+  --bg:#fdf3e1; --card:#fffaf1; --ink:#3b2a1a; --muted:#7a5f43; --line:#efdcbc;
+  --accent:#ff9f1c; --accent-dark:#d97f00; --green:#06d6a0; --green-dark:#05a87e;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:ui-rounded,"SF Pro Rounded",system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.45;
+  background-image:radial-gradient(#ead6b2 1.4px,transparent 1.5px);background-size:24px 24px}
+a{color:inherit}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+
+/* header */
+header{padding:22px 0 0}
+.brand{display:flex;align-items:center;gap:10px;font-weight:900;font-size:20px;text-decoration:none}
+.brand .mark{width:34px;height:34px;border-radius:10px;background:var(--ink);display:grid;place-items:center;color:var(--accent);font-size:17px}
+
+/* hero */
+.hero{padding:44px 0 36px;display:grid;gap:18px}
+.hero h1{font-size:clamp(32px,6vw,54px);line-height:1.05;margin:0;letter-spacing:-.02em;max-width:16ch}
+.hero h1 em{font-style:normal;color:var(--accent-dark)}
+.hero p{font-size:19px;color:var(--muted);margin:0;max-width:52ch;font-weight:600}
+.cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:14px;padding:13px 18px;
+  font:inherit;font-weight:900;font-size:16px;text-decoration:none;cursor:pointer;transition:transform .08s}
+.btn:active{transform:translateY(2px)}
+.btn.primary{background:var(--ink);color:#fff;box-shadow:0 4px 0 #1f160d}
+.btn.go{background:var(--green);color:#fff;box-shadow:0 4px 0 var(--green-dark)}
+.btn.soft{background:#fff;color:var(--ink);box-shadow:0 4px 0 var(--line)}
+.btn[aria-disabled=true]{background:#f3e7d1;color:#a68b6a;box-shadow:none;cursor:default}
+
+/* steps */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:8px 0 46px}
+.step{background:#fff;border-radius:20px;padding:18px;box-shadow:0 4px 0 var(--line)}
+.step b{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;margin-bottom:8px}
+.step h3{margin:0 0 4px;font-size:18px}
+.step p{margin:0;color:var(--muted);font-weight:600;font-size:15px}
+
+/* gallery */
+h2{font-size:28px;margin:0 0 6px;letter-spacing:-.01em}
+.sub{margin:0 0 20px;color:var(--muted);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.tool{background:var(--card);border-radius:24px;overflow:hidden;box-shadow:0 5px 0 var(--line);display:flex;flex-direction:column}
+.shot{aspect-ratio:4/3;overflow:hidden;background:#f3e7d1;border-bottom:3px solid var(--line)}
+.shot img{width:100%;height:100%;object-fit:cover;display:block}
+.body{padding:18px 18px 20px;display:flex;flex-direction:column;gap:10px;flex:1}
+.tag{align-self:flex-start;font-size:13px;font-weight:900;padding:4px 10px;border-radius:999px;background:#ffe9c7;color:var(--accent-dark)}
+.tag.soon{background:#eee4d4;color:#8d7356}
+.tool h3{margin:0;font-size:22px}
+.tool p{margin:0;font-weight:600}
+.prompt{background:#fff;border:2px dashed var(--line);border-radius:14px;padding:10px 12px;font-size:14px;color:var(--muted)}
+.prompt summary{cursor:pointer;font-weight:900;color:var(--ink);list-style:none}
+.prompt summary::-webkit-details-marker{display:none}
+.prompt summary::before{content:"💬 "}
+.prompt q{display:block;margin:8px 0;quotes:none;font-style:italic}
+.copy{border:0;background:var(--line);color:var(--ink);border-radius:10px;padding:6px 10px;font:inherit;font-weight:800;font-size:13px;cursor:pointer}
+.actions{display:flex;gap:10px;margin-top:auto;padding-top:4px}
+.actions .btn{flex:1}
+
+/* keep it */
+.keep{margin:52px 0 0;background:var(--ink);color:#fff;border-radius:28px;padding:30px 26px;display:grid;grid-template-columns:1.2fr 1fr;gap:26px;align-items:center}
+.keep h2{color:#fff}
+.keep p{margin:0 0 14px;color:#ecdcc3;font-weight:600}
+.keep ol{margin:0;padding-left:22px;font-weight:700;display:grid;gap:8px}
+.keep ol span{color:#ecdcc3;font-weight:600}
+.keep .btn.primary{background:var(--accent);box-shadow:0 4px 0 var(--accent-dark)}
+
+/* prompt maker */
+.maker{background:#fff;border-radius:28px;padding:26px 24px;box-shadow:0 5px 0 var(--line);margin:0 0 40px}
+.maker h2{margin-bottom:4px}
+.q{margin:18px 0 0}
+.q > label,.q > .ql{display:block;font-weight:900;font-size:16px;margin-bottom:8px}
+.q small{font-weight:700;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:0;border-radius:999px;padding:9px 14px;font:inherit;font-weight:800;font-size:15px;background:#f6ead3;color:var(--ink);cursor:pointer}
+.chip[aria-pressed=true]{background:var(--accent);color:#fff;box-shadow:0 3px 0 var(--accent-dark)}
+.chips.multi .chip[aria-pressed=true]{background:var(--ink);box-shadow:0 3px 0 #1f160d}
+.maker input[type=text],.maker #notes{width:100%;resize:vertical;font:inherit;font-size:16px;font-weight:600;padding:12px 14px;border-radius:14px;border:2px solid var(--line);background:#fffaf1;color:var(--ink)}
+.maker input[type=text]:focus,.maker #notes:focus{outline:none;border-color:var(--accent)}
+.out{margin-top:22px;background:var(--ink);color:#fff;border-radius:20px;padding:18px}
+.out .ql{font-weight:900;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.out textarea{width:100%;min-height:210px;resize:vertical;border:0;border-radius:12px;padding:12px;font:15px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;background:#2a1e12;color:#fdf3e1}
+.out .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.out .btn.go{flex:1}
+.out p{margin:10px 0 0;color:#ecdcc3;font-weight:600;font-size:14px}
+
+footer{padding:36px 0 50px;color:var(--muted);font-size:14px;font-weight:600}
+footer .links{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:8px}
+
+@media (max-width:760px){
+  .steps{grid-template-columns:1fr}
+  .grid{grid-template-columns:1fr}
+  .keep{grid-template-columns:1fr}
+  .hero{padding-top:30px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="brand" href="./"><span class="mark">▦</span>HTMLBoard Tools</a>
+  </header>
+
+  <section class="hero">
+    <h1>Tools made with AI, <em>for real life.</em></h1>
+    <p>Each of these started as one sentence typed to an AI. Try them right here in your browser. Then download one and keep it on your iPhone or iPad with HTMLBoard, offline and private.</p>
+    <div class="cta">
+      <a class="btn primary" href="#make">Make your own</a>
+      <a class="btn soft" href="#tools">See the tools</a>
+      <a class="btn soft" href="https://apps.apple.com/app/htmlboard/id6828721543">Get HTMLBoard on the App Store</a>
+    </div>
+  </section>
+
+  <section class="maker" id="make" aria-labelledby="make-h">
+    <h2 id="make-h">Make your own tool</h2>
+    <p class="sub" style="margin:0">Tap a few choices. We'll write the prompt for you. Paste it into any AI chat, like Claude, ChatGPT or Gemini.</p>
+
+    <div class="q"><span class="ql">1. Who is it for?</span>
+      <div class="chips" data-q="who">
+        <button class="chip" data-v="me" aria-pressed="true">Me</button>
+        <button class="chip" data-v="kids">My kids</button>
+        <button class="chip" data-v="family">My family</button>
+        <button class="chip" data-v="group">A class or team</button>
+        <button class="chip" data-v="event">An event</button>
+      </div>
+    </div>
+
+
+    <div class="q"><span class="ql">2. What kind of tool?</span>
+      <div class="chips" data-q="kind">
+        <button class="chip" data-v="tracker" aria-pressed="true">📈 Tracker</button>
+        <button class="chip" data-v="planner">🗓️ Planner</button>
+        <button class="chip" data-v="checklist">✅ Checklist</button>
+        <button class="chip" data-v="quiz">🧠 Quiz or flashcards</button>
+        <button class="chip" data-v="timer">⏱️ Timer</button>
+        <button class="chip" data-v="calculator">🧮 Calculator</button>
+        <button class="chip" data-v="explainer">🔬 How-it-works explainer</button>
+        <button class="chip" data-v="game">🎲 Game</button>
+      </div>
+    </div>
+
+    <div class="q"><label for="topic">3. What's it about?</label>
+      <input type="text" id="topic" placeholder="e.g. chores and allowance, a wedding budget, spelling words, smoking a brisket">
+    </div>
+
+    <div class="q"><span class="ql">4. Extras <small>(tap any)</small></span>
+      <div class="chips multi" data-q="extras">
+        <button class="chip" data-v="stars" aria-pressed="false">⭐ Stars and rewards</button>
+        <button class="chip" data-v="big" aria-pressed="false">👆 Extra-big buttons</button>
+        <button class="chip" data-v="dark" aria-pressed="false">🌙 Dark mode</button>
+        <button class="chip" data-v="sound" aria-pressed="false">🔊 Sounds</button>
+        <button class="chip" data-v="history" aria-pressed="false">🗂️ History log</button>
+        <button class="chip" data-v="print" aria-pressed="false">🖨️ Print-friendly</button>
+      </div>
+    </div>
+
+    <div class="q"><label for="notes">5. Anything else? <small>(optional)</small></label>
+      <textarea id="notes" rows="3" placeholder="e.g. Use our family's names: Ava, Ben and Cole. Make Saturday a no-chore day. Blue and green colors."></textarea>
+    </div>
+
+    <div class="out" aria-live="polite">
+      <div class="ql">Your prompt</div>
+      <textarea id="prompt" aria-label="Your prompt" spellcheck="false"></textarea>
+      <div class="row">
+        <button class="btn go" id="copyPrompt" type="button">📋 Copy prompt</button>
+      </div>
+      <p>Then share the HTML file your AI makes to HTMLBoard. You can edit the prompt above before you copy it.</p>
+    </div>
+  </section>
+
+  <section class="steps" aria-label="How it works">
+    <div class="step"><b>1</b><h3>Ask an AI</h3><p>Describe the tool you want in plain words. Ask for it as a single HTML file.</p></div>
+    <div class="step"><b>2</b><h3>Share it to HTMLBoard</h3><p>Share the file from your AI chat, Files, Mail or Messages.</p></div>
+    <div class="step"><b>3</b><h3>Use it anytime</h3><p>It stays on your phone, keeps what you save, and works without the internet.</p></div>
+  </section>
+
+  <section id="tools">
+    <h2>Try a tool</h2>
+    <p class="sub">Tap <b>Try it</b> to play with it here. Tap <b>Download</b> to keep it.</p>
+
+    <div class="grid">
+      <article class="tool">
+        <div class="shot"><img src="img/motor-lab.jpg" alt="Motor Lab: a battery box wired to a switch, two spinning motors and a glowing bulb" loading="lazy"></div>
+        <div class="body">
+          <span class="tag">Science</span>
+          <h3>⚡ Motor Lab</h3>
+          <p>Build circuits with a battery, switch, motors, bulbs and a buzzer, and watch electricity flow. Includes gears and 8 challenges.</p>
+          <details class="prompt"><summary>The prompt that started it</summary>
+            <q>Make a single-file HTML circuit playground for kids. Let them drag a battery box, switch, motor, light bulb and buzzer onto a workbench, connect them with wires, and show when the circuit works. Add a few challenges with stars.</q>
+            <button class="copy" type="button">Copy prompt</button> <button class="copy use" type="button">Use this prompt ↑</button></details>
+          <div class="actions">
+            <a class="btn go" href="tools/motor-lab.html" target="_blank" rel="noopener">▶ Try it</a>
+            <a class="btn soft" href="tools/motor-lab.html" download="Motor Lab.html">⬇ Download</a>
+          </div>
+        </div>
+      </article>
+      <article class="tool">
+        <div class="shot"><img src="img/engine-lab.jpg" alt="Engine Lab: a see-through 3D engine showing the exhaust stroke" loading="lazy"></div>
+        <div class="body">
+          <span class="tag">Science</span>
+          <h3>🚙 Engine Lab</h3>
+          <p>Peek under the hood of a 4x4 and see how a car engine works in 3D: intake, squeeze, bang and blow out.</p>
+          <details class="prompt"><summary>The prompt that started it</summary>
+            <q>Make a single-file HTML 3D explainer of how a car engine works, for kids. Show a jeep they can open the hood on, then a see-through engine that steps through intake, compression, power and exhaust.</q>
+            <button class="copy" type="button">Copy prompt</button> <button class="copy use" type="button">Use this prompt ↑</button></details>
+          <div class="actions">
+            <a class="btn go" href="tools/engine-lab.html" target="_blank" rel="noopener">▶ Try it</a>
+            <a class="btn soft" href="tools/engine-lab.html" download="Engine Lab.html">⬇ Download</a>
+          </div>
+        </div>
+      </article>
+      <article class="tool">
+        <div class="shot"><img src="img/math-helper.jpg" alt="Math Helper solving 2x + 5 = 15 and showing every step" loading="lazy"></div>
+        <div class="body">
+          <span class="tag">Learning</span>
+          <h3>➗ Math Helper</h3>
+          <p>A graphing calculator that solves equations and shows every step, with a Kids mode. Made for tutoring at the kitchen table.</p>
+          <details class="prompt"><summary>The prompt that started it</summary>
+            <q>Make a single-file HTML graphing calculator that can graph equations, plot points, and solve equations showing every step in plain words. Add a Kids mode and a big keypad.</q>
+            <button class="copy" type="button">Copy prompt</button> <button class="copy use" type="button">Use this prompt ↑</button></details>
+          <div class="actions">
+            <a class="btn go" href="tools/math-helper.html" target="_blank" rel="noopener">▶ Try it</a>
+            <a class="btn soft" href="tools/math-helper.html" download="Math Helper.html">⬇ Download</a>
+          </div>
+        </div>
+      </article>
+      <article class="tool">
+        <div class="shot"><img src="img/chore-chart.jpg" alt="Chore Chart with stars earned for making the bed and packing a school bag" loading="lazy"></div>
+        <div class="body">
+          <span class="tag">Family</span>
+          <h3>⭐ Chore Chart</h3>
+          <p>Each kid gets their own chores, taps a box to earn a star, and works toward a reward. A new chart starts every Monday.</p>
+          <details class="prompt"><summary>The prompt that started it</summary>
+            <q>Make a single-file HTML chore chart for my kids. Each child has their own chores and a reward goal, taps a box each day to earn a star, and the chart resets every Monday.</q>
+            <button class="copy" type="button">Copy prompt</button> <button class="copy use" type="button">Use this prompt ↑</button></details>
+          <div class="actions">
+            <a class="btn go" href="tools/chore-chart.html" target="_blank" rel="noopener">▶ Try it</a>
+            <a class="btn soft" href="tools/chore-chart.html" download="Chore Chart.html">⬇ Download</a>
+          </div>
+        </div>
+      </article>
+      <article class="tool">
+        <div class="shot"><img src="img/brisket-scheduler.jpg" alt="Brisket Scheduler planning a cook backward from serve time" loading="lazy"></div>
+        <div class="body">
+          <span class="tag">Cooking</span>
+          <h3>🥩 Brisket Scheduler</h3>
+          <p>Pick when you want to eat. It works backward to tell you when to light the fire, logs temps, and adds each step to your calendar.</p>
+          <details class="prompt"><summary>The prompt that started it</summary>
+            <q>Make a single-file HTML brisket planner. I pick when we eat, and it works backward to tell me when to light the smoker, wrap and rest, with a checklist, a temperature log and calendar reminders.</q>
+            <button class="copy" type="button">Copy prompt</button> <button class="copy use" type="button">Use this prompt ↑</button></details>
+          <div class="actions">
+            <a class="btn go" href="tools/brisket-scheduler.html" target="_blank" rel="noopener">▶ Try it</a>
+            <a class="btn soft" href="tools/brisket-scheduler.html" download="Brisket Scheduler.html">⬇ Download</a>
+          </div>
+        </div>
+      </article>
+      <article class="tool">
+        <div class="shot"><img src="img/3-in-a-row.jpg" alt="3-in-a-Row: a round game board with green and navy pieces" loading="lazy"></div>
+        <div class="body">
+          <span class="tag">Game</span>
+          <h3>🟢 3-in-a-Row</h3>
+          <p>Drop pieces to get 3 in a row, or switch to 4 in a row. Play a friend or the computer on three levels, then spin the board to clear it.</p>
+          <details class="prompt"><summary>The prompt that started it</summary>
+            <q>Make a single-file HTML drop-the-pieces game where you get 3 in a row on a small round board, with a 4-in-a-row mode, two players or vs computer, and easy, medium and hard levels.</q>
+            <button class="copy" type="button">Copy prompt</button> <button class="copy use" type="button">Use this prompt ↑</button></details>
+          <div class="actions">
+            <a class="btn go" href="tools/3-in-a-row.html" target="_blank" rel="noopener">▶ Try it</a>
+            <a class="btn soft" href="tools/3-in-a-row.html" download="3-in-a-Row.html">⬇ Download</a>
+          </div>
+        </div>
+      </article>
+      <article class="tool">
+        <div class="shot"><img src="img/pocket-pet.jpg" alt="Pocket Pet: a small pixel pet with meters for food, joy, rest and health" loading="lazy"></div>
+        <div class="body">
+          <span class="tag">Game</span>
+          <h3>🐣 Pocket Pet</h3>
+          <p>Warm an egg until it hatches, then feed, wash and play with your pet. It keeps living while you are away and grows into a different kind depending on how you care for it.</p>
+          <details class="prompt"><summary>The prompt that started it</summary>
+            <q>Make a single-file HTML virtual pet that hatches from an egg. Let me feed it, play a quick catch game, wash it and put it to bed. It should keep aging while the page is closed, grow through stages, and turn into different kinds based on how I care for it. Save everything on my device.</q>
+            <button class="copy" type="button">Copy prompt</button> <button class="copy use" type="button">Use this prompt ↑</button></details>
+          <div class="actions">
+            <a class="btn go" href="tools/pocket-pet.html" target="_blank" rel="noopener">▶ Try it</a>
+            <a class="btn soft" href="tools/pocket-pet.html" download="Pocket Pet.html">⬇ Download</a>
+          </div>
+        </div>
+      </article>
+      <article class="tool">
+        <div class="shot"><img src="img/field-cam.jpg" alt="Field Cam: a camera viewfinder with grid, histogram and zebra stripes turned on" loading="lazy"></div>
+        <div class="body">
+          <span class="tag">Photo</span>
+          <h3>📷 Field Cam</h3>
+          <p>A camera with the tools video shooters use: histogram, zebras, false color, focus peaking, a level and frame guides. Add a color look and export it as a .cube file. The camera only turns on when you tap Start.</p>
+          <details class="prompt"><summary>The prompt that started it</summary>
+            <q>Make a single-file HTML camera for photo and video with a histogram, zebra stripes, false color, focus peaking, a level, rule-of-thirds grid and frame guides. Show any manual exposure, focus and white balance controls the camera reports, and let me apply color looks that I can export as .cube files.</q>
+            <button class="copy" type="button">Copy prompt</button> <button class="copy use" type="button">Use this prompt ↑</button></details>
+          <div class="actions">
+            <a class="btn go" href="tools/field-cam.html" target="_blank" rel="noopener">▶ Try it</a>
+            <a class="btn soft" href="tools/field-cam.html" download="Field Cam.html">⬇ Download</a>
+          </div>
+        </div>
+      </article>
+      <article class="tool">
+        <div class="shot"><img src="img/guitar-tuner.jpg" alt="Guitar Tuner: a needle gauge with buttons for each string and a Start listening button" loading="lazy"></div>
+        <div class="body">
+          <span class="tag">Music</span>
+          <h3>🎸 Guitar Tuner</h3>
+          <p>Listens through your microphone and shows if each string is flat or sharp. Tap a string to hear its note, switch tunings, or adjust A4.</p>
+          <details class="prompt"><summary>The prompt that started it</summary>
+            <q>Make a single-file HTML guitar tuner that listens through my microphone and shows a needle for flat or sharp, with buttons for each string that play the note, a few common tunings, and an adjustable A4 pitch.</q>
+            <button class="copy" type="button">Copy prompt</button> <button class="copy use" type="button">Use this prompt ↑</button></details>
+          <div class="actions">
+            <a class="btn go" href="tools/guitar-tuner.html" target="_blank" rel="noopener">▶ Try it</a>
+            <a class="btn soft" href="tools/guitar-tuner.html" download="Guitar Tuner.html">⬇ Download</a>
+          </div>
+        </div>
+      </article>
+      <article class="tool">
+        <div class="shot"><img src="img/mp3-player.jpg" alt="MP3 Player: a dark music player with a menu screen and hardware-style buttons" loading="lazy"></div>
+        <div class="body">
+          <span class="tag">Music</span>
+          <h3>🎧 MP3 Player</h3>
+          <p>Your own music and audiobooks in a retro player with a turning jog dial, playlists, a sleep timer and a built-in Brick game. Everything stays on your device.</p>
+          <details class="prompt"><summary>The prompt that started it</summary>
+            <q>Make a single-file HTML music player styled like a retro MP3 player, with a screen, four hardware-style buttons and a jog dial I turn to scroll. Let me add my own MP3 files and audiobooks, make playlists, and keep everything saved on my device.</q>
+            <button class="copy" type="button">Copy prompt</button> <button class="copy use" type="button">Use this prompt ↑</button></details>
+          <div class="actions">
+            <a class="btn go" href="tools/mp3-player.html" target="_blank" rel="noopener">▶ Try it</a>
+            <a class="btn soft" href="tools/mp3-player.html" download="MP3 Player.html">⬇ Download</a>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="keep">
+    <div>
+      <h2>Keep it on your iPhone</h2>
+      <p>HTMLBoard is a free iPhone and iPad app that keeps HTML files like these in one place. Tools start offline and can't use your camera, mic or location unless you say yes.</p>
+      <a class="btn primary" href="https://apps.apple.com/app/htmlboard/id6828721543">Get HTMLBoard</a>
+    </div>
+    <ol>
+      <li>Tap <b>Download</b> on a tool. <span>It saves to your Files app.</span></li>
+      <li>Open <b>Files</b> → <b>Downloads</b>. <span>Find the tool.</span></li>
+      <li>Tap <b>Share</b> → <b>HTMLBoard</b>. <span>It's on your board.</span></li>
+    </ol>
+  </section>
+
+  <footer>
+    <div class="links">
+      <a href="https://apps.apple.com/app/htmlboard/id6828721543">HTMLBoard on the App Store</a>
+      <a href="https://sites.google.com/view/htmlboard">Support</a>
+      <a href="https://sites.google.com/view/htmlboard/privacy-policy">Privacy</a>
+    </div>
+    This site doesn't collect anything. Engine Lab uses Three.js (MIT license).
+  </footer>
+</div>
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  const pick={who:'me', kind:'tracker'}, extras=new Set();
+  const WHO={
+    me:'for me to use myself',
+    kids:'for my kids',
+    family:'for my whole family to share',
+    group:'for a class or team I lead',
+    event:'for an upcoming event'
+  };
+  const KIND={
+    tracker:['tracker','Let me add entries quickly, see totals and progress at a glance, and edit or delete entries.'],
+    planner:['planner','Let me lay things out by day or step, move items around, and see what is coming up next.'],
+    checklist:['checklist','Let me check items off, add my own items, and reset the list when I start over.'],
+    quiz:['quiz and flashcard tool','Let me enter my own questions and answers, then quiz {me}, show the right answer, and keep score.'],
+    timer:['timer','Show a big, easy-to-read countdown with start, pause and reset, and an alert when time is up.'],
+    calculator:['calculator','Show the answer clearly and explain how it was worked out, step by step.'],
+    explainer:['interactive how-it-works explainer','Teach it in small steps with simple visuals I can tap through, plus a short quiz at the end.'],
+    game:['simple game','Keep the rules easy to learn, show the score, and make it quick to play again.']
+  };
+  const EXTRA={
+    stars:'Add stars or simple rewards when goals are reached.',
+    big:'Use extra-large buttons and text so it is easy to tap.',
+    dark:'Use a dark color scheme.',
+    sound:'Add short, friendly sound effects, with a button to mute them.',
+    history:'Keep a history log of past entries I can look back on.',
+    print:'Include a clean print-friendly layout.'
+  };
+  function build(){
+    const topic=$('#topic').value.trim();
+    const [kindName, kindHow]=KIND[pick.kind];
+    const who=WHO[pick.who];
+    const ME={me:'me',kids:'them',family:'us',group:'them',event:'us'}[pick.who];
+    let p=`Make a ${kindName}${topic?` for ${topic}`:''}, ${who}.\n\n${kindHow.replace('{me}',ME)}`;
+    if(pick.who==='kids') p+=' Keep the words simple and the design colorful and friendly for kids.';
+    if(pick.who==='family') p+=' Let each family member have their own name or profile.';
+    if(pick.who==='group') p+=' Let me add a list of names.';
+    const ex=[...extras].map(e=>EXTRA[e]);
+    if(ex.length) p+='\n\n'+ex.join(' ');
+    const notes=$('#notes').value.trim();
+    if(notes) p+='\n\nMore details: '+notes;
+    p+='\n\nRequirements:\n'+
+      '- One single, self-contained HTML file, with all CSS and JavaScript inside it. No outside libraries, fonts or images.\n'+
+      '- Save everything with localStorage so it is still there next time I open it.\n'+
+      '- Work completely offline.\n'+
+      '- Designed for iPhone: fits a small screen, big touch-friendly buttons, respects the safe areas.\n'+
+      '- Never ask for passwords or payment details.';
+    $('#prompt').value=p;
+  }
+  document.querySelectorAll('.chips').forEach(group=>{
+    const q=group.dataset.q;
+    group.addEventListener('click',e=>{
+      const b=e.target.closest('.chip'); if(!b) return;
+      if(q==='extras'){
+        const on=b.getAttribute('aria-pressed')!=='true';
+        b.setAttribute('aria-pressed',on); on?extras.add(b.dataset.v):extras.delete(b.dataset.v);
+      } else {
+        group.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',c===b));
+        pick[q]=b.dataset.v;
+      }
+      build();
+    });
+  });
+  $('#topic').addEventListener('input',build);
+  $('#notes').addEventListener('input',build);
+  $('#copyPrompt').addEventListener('click',async()=>{
+    const b=$('#copyPrompt'), t=$('#prompt');
+    try{ await navigator.clipboard.writeText(t.value); }
+    catch(e){ t.select(); try{ document.execCommand('copy'); }catch(_){} }
+    b.textContent='✅ Copied! Now paste it into your AI chat';
+    setTimeout(()=>b.textContent='📋 Copy prompt',2200);
+  });
+  build();
+})();
+document.querySelectorAll('.copy.use').forEach(b=>b.addEventListener('click',()=>{
+  const t=b.parentElement.querySelector('q').textContent.trim();
+  const box=document.getElementById('prompt');
+  box.value=t+'\n\nRequirements:\n- One single, self-contained HTML file, with all CSS and JavaScript inside it. No outside libraries, fonts or images.\n- Save everything with localStorage so it is still there next time I open it.\n- Work completely offline.\n- Designed for iPhone: fits a small screen, big touch-friendly buttons, respects the safe areas.\n- Never ask for passwords or payment details.';
+  document.getElementById('make').scrollIntoView({behavior:'smooth'});
+}));
+document.querySelectorAll('.copy:not(.use)').forEach(b=>b.addEventListener('click',async()=>{
+  const t=b.parentElement.querySelector('q').textContent.trim();
+  try{ await navigator.clipboard.writeText(t); b.textContent='Copied!'; }
+  catch(e){ b.textContent='Select and copy the text above'; }
+  setTimeout(()=>b.textContent='Copy prompt',1800);
+}));
+</script>
+</body>
+</html>

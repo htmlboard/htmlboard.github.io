@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="htmlboard-icon" content="🥩">
+<meta name="color-scheme" content="dark">
+<title>brisket-scheduler</title>
+<style>
+:root{
+  --bg:#121110;--card:#1d1b19;--card2:#262320;--line:#3a3530;
+  --text:#f2ece6;--dim:#a99f95;--accent:#e2763a;--accent2:#f2a65a;
+  --ok:#5fbf7f;--warn:#e8b64a;--bad:#e2584a;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);
+  font:16px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
+body{min-height:100dvh;
+  padding:calc(env(safe-area-inset-top) + 12px) calc(env(safe-area-inset-right) + 16px)
+          calc(env(safe-area-inset-bottom) + 24px) calc(env(safe-area-inset-left) + 28px)}
+h1{font-size:24px;margin:4px 0 2px}
+h2{font-size:17px;margin:0 0 10px;color:var(--accent2)}
+.sub{color:var(--dim);font-size:14px;margin-bottom:14px}
+.wrap{max-width:1100px;margin:0 auto}
+.grid{display:grid;gap:14px}
+@media (min-width:760px){.grid{grid-template-columns:minmax(300px,380px) 1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+label{display:block;font-size:13px;color:var(--dim);margin:12px 0 5px}
+label:first-of-type{margin-top:0}
+input,select,textarea{width:100%;font:inherit;color:var(--text);background:var(--card2);
+  border:1px solid var(--line);border-radius:12px;padding:12px;min-height:48px}
+textarea{min-height:70px;resize:vertical}
+.row{display:flex;gap:10px}.row>*{flex:1;min-width:0}
+.seg{display:flex;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;min-height:42px;border:0;border-radius:9px;background:transparent;color:var(--dim);font:inherit;font-size:15px}
+.seg button.on{background:var(--accent);color:#fff;font-weight:600}
+.btn{min-height:48px;border:1px solid var(--line);border-radius:12px;background:var(--card2);color:var(--text);
+  font:inherit;font-weight:600;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.small{min-height:40px;font-size:14px;padding:0 12px}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.btns .btn{flex:1 1 auto}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.stat{background:var(--card2);border-radius:12px;padding:10px;text-align:center}
+.stat b{display:block;font-size:20px}
+.stat span{font-size:12px;color:var(--dim)}
+.now{background:linear-gradient(135deg,#3a2216,#22180f);border:1px solid #5a3420;border-radius:14px;padding:14px;margin-bottom:12px}
+.now .k{font-size:12px;color:var(--accent2);text-transform:uppercase;letter-spacing:.06em}
+.now .t{font-size:19px;font-weight:700;margin:3px 0}
+.now .c{color:var(--dim);font-size:14px}
+.warn{background:#3a2e14;border:1px solid #6a5420;color:#f3d48a;border-radius:12px;padding:10px 12px;font-size:14px;margin-bottom:12px}
+.err{background:#3a1714;border:1px solid #6a2a20;color:#f3a08a;border-radius:12px;padding:12px;margin-bottom:12px}
+.tl{list-style:none;margin:0;padding:0}
+.step{display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--line);align-items:flex-start}
+.step:first-child{border-top:0}
+.chk{flex:0 0 32px;height:32px;border-radius:50%;border:2px solid var(--line);background:transparent;color:#fff;font-size:16px;margin-top:2px}
+.step.done .chk{background:var(--ok);border-color:var(--ok)}
+.step.done .lbl{text-decoration:line-through;color:var(--dim)}
+.step.next{background:#2a1d14;border-radius:12px;margin:0 -8px;padding:12px 8px;border-top-color:transparent}
+.when{flex:0 0 86px;font-variant-numeric:tabular-nums}
+.when b{display:block;font-size:16px}
+.when span{font-size:12px;color:var(--dim)}
+.lbl{font-weight:600}
+.det{font-size:14px;color:var(--dim);margin-top:2px}
+.tag{display:inline-block;font-size:11px;padding:2px 7px;border-radius:20px;background:var(--card2);color:var(--accent2);margin-left:6px;vertical-align:1px}
+.temps{list-style:none;padding:0;margin:10px 0 0;font-size:14px}
+.temps li{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid var(--line)}
+.temps li button{background:none;border:0;color:var(--dim);font-size:18px;min-width:40px;min-height:36px}
+.hist{list-style:none;padding:0;margin:0}
+.hist li{padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+.hist li:first-child{border-top:0}
+.muted{color:var(--dim);font-size:13px}
+.tabs{display:flex;gap:6px;margin-bottom:14px}
+.tabs button{flex:1;min-height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--dim);font:inherit;font-weight:600}
+.tabs button.on{color:var(--text);border-color:var(--accent);background:#2a1d14}
+.hide{display:none!important}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 20px);transform:translateX(-50%);
+  background:#333;color:#fff;padding:10px 16px;border-radius:20px;font-size:14px;opacity:0;transition:.25s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🥩 Brisket Scheduler</h1>
+  <div class="sub">Pick when you want to eat. It works backward to tell you when to light the fire.</div>
+  <div id="loadErr" class="err hide"></div>
+
+  <div class="tabs">
+    <button data-tab="plan" class="on">Plan</button>
+    <button data-tab="cook">Cook log</button>
+    <button data-tab="history">History</button>
+  </div>
+
+  <section id="tab-plan" class="grid">
+    <div class="card">
+      <h2>Your cook</h2>
+      <label for="serve">Serve time</label>
+      <input id="serve" type="datetime-local">
+      <div class="row">
+        <div><label for="weight">Trimmed weight (lb)</label>
+          <input id="weight" type="number" inputmode="decimal" min="3" max="25" step="0.5"></div>
+        <div><label for="temp">Pit temp</label>
+          <select id="temp">
+            <option value="225">225°F low</option>
+            <option value="250">250°F</option>
+            <option value="275">275°F</option>
+            <option value="300">300°F hot &amp; fast</option>
+          </select></div>
+      </div>
+      <label>Wrap</label>
+      <div class="seg" id="wrapSeg">
+        <button data-v="paper">Paper</button><button data-v="foil">Foil</button><button data-v="none">None</button>
+      </div>
+      <div class="row">
+        <div><label for="rest">Rest (hours)</label>
+          <input id="rest" type="number" inputmode="decimal" min="1" max="12" step="0.5"></div>
+        <div><label for="buffer">Safety buffer (h)</label>
+          <input id="buffer" type="number" inputmode="decimal" min="0" max="6" step="0.5"></div>
+      </div>
+      <div class="row">
+        <div><label for="preheat">Smoker warm-up (min)</label>
+          <input id="preheat" type="number" inputmode="numeric" min="10" max="120" step="5"></div>
+        <div><label for="brine">Dry-brine ahead (h)</label>
+          <input id="brine" type="number" inputmode="numeric" min="0" max="48" step="1"></div>
+      </div>
+      <p class="muted">Time per pound is an estimate (about 1.5 h/lb at 225°F, 1.25 at 250°F, 1 at 275°F, 0.8 at 300°F; wrapping cuts it ~15%). The buffer covers a long stall. If it finishes early, it just rests longer.</p>
+      <div class="btns">
+        <button class="btn small" id="resetChecks">Clear checkmarks</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div id="nowBox" class="now"></div>
+      <div id="warnBox" class="warn hide"></div>
+      <div class="summary">
+        <div class="stat"><b id="sCook">–</b><span>est. cook</span></div>
+        <div class="stat"><b id="sOn">–</b><span>meat on</span></div>
+        <div class="stat"><b id="sFire">–</b><span>light fire</span></div>
+      </div>
+      <h2>Timeline</h2>
+      <ol class="tl" id="timeline"></ol>
+      <div class="btns">
+        <a class="btn primary" id="icsBtn">📅 Add to Calendar</a>
+        <button class="btn" id="copyBtn">Copy timeline</button>
+      </div>
+      <p class="muted">Add to Calendar downloads one event per step with an alert, so your phone reminds you.</p>
+    </div>
+  </section>
+
+  <section id="tab-cook" class="grid hide">
+    <div class="card">
+      <h2>Log a temperature</h2>
+      <div class="row">
+        <div><label for="tMeat">Meat °F</label><input id="tMeat" type="number" inputmode="numeric"></div>
+        <div><label for="tPit">Pit °F</label><input id="tPit" type="number" inputmode="numeric"></div>
+      </div>
+      <label for="tNote">Note (optional)</label>
+      <input id="tNote" type="text" placeholder="Wrapped, added wood, stall…">
+      <div class="btns"><button class="btn primary" id="addTemp">Log it</button></div>
+      <ul class="temps" id="tempList"></ul>
+    </div>
+    <div class="card">
+      <h2>Finish this cook</h2>
+      <label for="rating">How was it?</label>
+      <select id="rating">
+        <option value="">–</option><option>5 – Perfect</option><option>4 – Great</option>
+        <option>3 – Good</option><option>2 – Meh</option><option>1 – Rough</option>
+      </select>
+      <label for="notes">Notes for next time</label>
+      <textarea id="notes" placeholder="Wood, rub, how long the stall lasted, what to change…"></textarea>
+      <div class="btns"><button class="btn primary" id="saveCook">Save to history &amp; start fresh</button></div>
+      <p class="muted">Saves the plan, temps and notes to History, then clears the log and checkmarks for your next brisket. Your settings stay.</p>
+    </div>
+  </section>
+
+  <section id="tab-history" class="hide">
+    <div class="card">
+      <h2>Past cooks</h2>
+      <ul class="hist" id="histList"></ul>
+      <div class="btns">
+        <a class="btn" id="expJson">Export JSON</a>
+        <a class="btn" id="expCsv">Export CSV</a>
+        <button class="btn" id="copyJson">Copy JSON</button>
+      </div>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+var KEY = "brisket-scheduler:v1";
+var SCHEMA = 1;
+var RATE = {225:1.5, 250:1.25, 275:1.0, 300:0.8};
+var $ = function(id){ return document.getElementById(id); };
+
+function defaultServe(){
+  var d = new Date(); d.setDate(d.getDate()+1); d.setHours(18,0,0,0); return toLocalInput(d);
+}
+function toLocalInput(d){
+  var p=function(n){return String(n).padStart(2,"0");};
+  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes());
+}
+function defaults(){
+  return { schema:SCHEMA,
+    plan:{ serve:defaultServe(), weight:12, temp:250, wrap:"paper", rest:2, buffer:1.5, preheat:45, brine:12 },
+    done:{}, temps:[], notes:"", rating:"", history:[] };
+}
+
+var state, canSave = true;
+function load(){
+  var raw = null;
+  try { raw = localStorage.getItem(KEY); } catch(e){}
+  if (!raw) return defaults();
+  try {
+    var s = JSON.parse(raw);
+    var d = defaults();
+    // migrate / fill missing fields without discarding saved data
+    s.schema = s.schema || 1;
+    s.plan = Object.assign(d.plan, s.plan || {});
+    s.done = s.done || {}; s.temps = s.temps || []; s.history = s.history || [];
+    if (s.notes == null) s.notes = ""; if (s.rating == null) s.rating = "";
+    return s;
+  } catch(e){
+    canSave = false;
+    var box = $("loadErr");
+    box.textContent = "Saved data couldn't be read, so it was left untouched and changes won't be saved this session. Your old data is still stored.";
+    box.classList.remove("hide");
+    return defaults();
+  }
+}
+function save(){
+  if (!canSave) return;
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e){ toast("Couldn't save"); }
+}
+state = load();
+
+/* ---------- schedule ---------- */
+var H = 3600000, M = 60000;
+function round5(t){ return Math.round(t/(5*M))*(5*M); }
+function compute(){
+  var p = state.plan;
+  var serve = new Date(p.serve).getTime();
+  if (isNaN(serve)) return null;
+  var w = Math.max(1, +p.weight || 0);
+  var rate = RATE[p.temp] || 1.25;
+  var cookH = w * rate * (p.wrap === "none" ? 1 : 0.85);
+  cookH = Math.max(4, cookH);
+  var rest = Math.max(0, +p.rest || 0), buf = Math.max(0, +p.buffer || 0);
+  var slice = serve - 15*M;
+  var latestOff = slice - rest*H;
+  var expectedDone = latestOff - buf*H;
+  var on = round5(expectedDone - cookH*H);
+  var fire = on - (+p.preheat || 45)*M;
+  var steps = [];
+  if (+p.brine > 0) steps.push({id:"brine", t:on - p.brine*H, label:"Trim & dry-brine",
+    det:"Trim fat to ~¼\", salt all over, back in the fridge uncovered."});
+  steps.push({id:"rub", t:on - 60*M, label:"Pull from fridge, apply rub",
+    det:"Binder if you use one, then rub. Let it sit while the smoker heats."});
+  steps.push({id:"fire", t:fire, label:"Light the smoker",
+    det:"Bring it to "+p.temp+"°F and let the smoke run clean (thin and blue)."});
+  steps.push({id:"on", t:on, label:"Brisket on",
+    det:"Probe in the thickest part of the flat. Note the time in Cook log."});
+  if (cookH > 4) steps.push({id:"spritz", t:on + 3*H, label:"Check bark, start spritzing",
+    det:"Every 45–60 min if edges look dry. Don't open the lid more than you need to."});
+  if (p.wrap !== "none") steps.push({id:"wrap", t:on + cookH*0.55*H, tag:"approx", label:"Wrap in "+(p.wrap==="paper"?"butcher paper":"foil"),
+    det:"Around 160–170°F, when the bark is set and doesn't smear. Go by the bark, not the clock."});
+  else steps.push({id:"stall", t:on + cookH*0.5*H, tag:"approx", label:"The stall",
+    det:"Temp sits near 160–170°F for hours. Normal. Hold the pit steady."});
+  steps.push({id:"probe", t:expectedDone - 1*H, tag:"approx", label:"Start probing for tender",
+    det:"Around 195°F, check the flat: probe should slide in like soft butter."});
+  steps.push({id:"done", t:expectedDone, tag:"estimate", label:"Expected done",
+    det:"~200–205°F and probe-tender. Pull it, keep it wrapped, into the rest."});
+  steps.push({id:"latest", t:latestOff, label:"Latest pull time",
+    det:"This is the buffer limit. Pull now even if it needs a little more, to keep the rest time."});
+  steps.push({id:"rest", t:latestOff, label:"Rest", hideTime:true,
+    det:"Wrapped in a towel in a dry cooler, or in the oven at 150–170°F. Longer rest if it finished early."});
+  steps.push({id:"slice", t:slice, label:"Slice",
+    det:"Separate point and flat, slice against the grain, pencil-width."});
+  steps.push({id:"serve", t:serve, label:"Eat 🎉", det:""});
+  steps.sort(function(a,b){ return a.t - b.t; });
+  // keep rest after latest
+  return {steps:steps, cookH:cookH, on:on, fire:fire, serve:serve, rest:rest};
+}
+
+/* ---------- format ---------- */
+function fmtTime(t){ return new Date(t).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}); }
+function fmtDay(t){
+  var d = new Date(t), now = new Date();
+  var day0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  var diff = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() - day0)/86400000);
+  if (diff === 0) return "Today"; if (diff === 1) return "Tomorrow"; if (diff === -1) return "Yesterday";
+  return d.toLocaleDateString([], {weekday:"short", month:"short", day:"numeric"});
+}
+function fmtDur(ms){
+  var neg = ms < 0; ms = Math.abs(ms);
+  var h = Math.floor(ms/H), m = Math.round((ms%H)/M);
+  if (m === 60){ h++; m = 0; }
+  var s = (h ? h+"h " : "") + m + "m";
+  return neg ? s+" ago" : "in "+s;
+}
+function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+
+/* ---------- render ---------- */
+var sched = null;
+function render(){
+  sched = compute();
+  var tl = $("timeline");
+  if (!sched){ tl.innerHTML = "<li class='muted'>Set a serve time.</li>"; return; }
+  var now = Date.now(), nextId = null;
+  for (var i=0;i<sched.steps.length;i++){
+    var s = sched.steps[i];
+    if (!state.done[s.id] && s.id !== "rest"){ nextId = s.id; break; }
+  }
+  tl.innerHTML = sched.steps.map(function(s){
+    var done = !!state.done[s.id];
+    var cls = "step" + (done ? " done" : "") + (s.id === nextId ? " next" : "");
+    var when = s.hideTime ? "<b>"+(sched.rest)+"h</b><span>until slice</span>"
+      : "<b>"+fmtTime(s.t)+"</b><span>"+fmtDay(s.t)+"</span>";
+    return "<li class='"+cls+"'>"+
+      "<button class='chk' data-id='"+s.id+"' aria-label='Mark done'>"+(done?"✓":"")+"</button>"+
+      "<div class='when'>"+when+"</div>"+
+      "<div><div class='lbl'>"+esc(s.label)+(s.tag?"<span class='tag'>"+s.tag+"</span>":"")+"</div>"+
+      (s.det?"<div class='det'>"+esc(s.det)+"</div>":"")+"</div></li>";
+  }).join("");
+
+  $("sCook").textContent = (Math.round(sched.cookH*2)/2) + "h";
+  $("sOn").textContent = fmtTime(sched.on);
+  $("sFire").textContent = fmtTime(sched.fire);
+
+  var nb = $("nowBox");
+  var nx = sched.steps.filter(function(s){ return s.id === nextId; })[0];
+  if (nx){
+    var late = nx.t < now;
+    nb.innerHTML = "<div class='k'>"+(late ? "Due now" : "Next up")+"</div><div class='t'>"+esc(nx.label)+"</div>"+
+      "<div class='c'>"+fmtDay(nx.t)+" "+fmtTime(nx.t)+" · "+fmtDur(nx.t - now)+"</div>";
+  } else {
+    nb.innerHTML = "<div class='k'>All done</div><div class='t'>Enjoy the brisket.</div><div class='c'>Save it in Cook log when you're ready.</div>";
+  }
+
+  var warns = [];
+  if (sched.fire < now && !state.done.fire && !state.done.on) warns.push("Light-fire time has already passed. Push the serve time later, raise the pit temp, or shorten the rest/buffer.");
+  if (sched.rest < 1) warns.push("Rest under 1 hour: juices won't settle. 2+ hours is better.");
+  if (+state.plan.weight > 20) warns.push("Over 20 lb: estimates get loose. Add more buffer.");
+  var wb = $("warnBox");
+  wb.innerHTML = warns.map(esc).join("<br>");
+  wb.classList.toggle("hide", !warns.length);
+
+  renderTemps(); renderHistory();
+}
+
+function renderTemps(){
+  var l = $("tempList");
+  if (!state.temps.length){ l.innerHTML = "<li class='muted'>No readings yet.</li>"; return; }
+  l.innerHTML = state.temps.slice().reverse().map(function(r, i){
+    var idx = state.temps.length - 1 - i;
+    return "<li><span><b>"+fmtTime(r.t)+"</b> · "+(r.meat!=null?"meat "+r.meat+"°":"")+
+      (r.pit!=null?" · pit "+r.pit+"°":"")+(r.note?"<br><span class='muted'>"+esc(r.note)+"</span>":"")+
+      "</span><button data-del='"+idx+"' aria-label='Delete'>×</button></li>";
+  }).join("");
+}
+
+function renderHistory(){
+  var l = $("histList");
+  if (!state.history.length){ l.innerHTML = "<li class='muted'>No saved cooks yet. Finish one in Cook log.</li>"; }
+  else l.innerHTML = state.history.slice().reverse().map(function(h){
+    var p = h.plan;
+    return "<li><b>"+new Date(h.savedAt).toLocaleDateString([], {month:"short", day:"numeric", year:"numeric"})+"</b> · "+
+      p.weight+" lb @ "+p.temp+"°F · wrap: "+p.wrap+(h.rating?" · "+esc(h.rating):"")+
+      "<br><span class='muted'>"+h.temps.length+" temp readings"+(h.notes?" · "+esc(h.notes):"")+"</span></li>";
+  }).join("");
+  setDownload($("expJson"), "brisket-scheduler-history.json", "application/json", JSON.stringify(state.history, null, 2));
+  setDownload($("expCsv"), "brisket-scheduler-history.csv", "text/csv", historyCsv());
+}
+
+function historyCsv(){
+  var q = function(v){ v = v == null ? "" : String(v); return '"'+v.replace(/"/g,'""')+'"'; };
+  var rows = [["saved","serve_time","weight_lb","pit_temp_f","wrap","rest_h","buffer_h","rating","notes","temp_readings"]];
+  state.history.forEach(function(h){
+    var p = h.plan;
+    rows.push([h.savedAt, p.serve, p.weight, p.temp, p.wrap, p.rest, p.buffer, h.rating, h.notes,
+      h.temps.map(function(r){ return new Date(r.t).toISOString()+" meat="+(r.meat==null?"":r.meat)+" pit="+(r.pit==null?"":r.pit)+(r.note?" ("+r.note+")":""); }).join("; ")]);
+  });
+  return rows.map(function(r){ return r.map(q).join(","); }).join("\n");
+}
+
+var urls = {};
+function setDownload(a, name, type, text){
+  if (urls[name]) URL.revokeObjectURL(urls[name]);
+  urls[name] = URL.createObjectURL(new Blob([text], {type:type}));
+  a.href = urls[name]; a.download = name;
+}
+
+/* ---------- calendar ---------- */
+function icsDate(t){ return new Date(t).toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,""); }
+function icsEsc(s){ return String(s).replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\n/g,"\\n"); }
+function buildIcs(){
+  if (!sched) return "";
+  var out = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//brisket-scheduler//EN","CALSCALE:GREGORIAN"];
+  var stamp = icsDate(Date.now());
+  sched.steps.forEach(function(s){
+    if (s.id === "rest" || s.id === "serve" && false) return;
+    var end = s.t + 15*M;
+    if (s.id === "serve") end = s.t + 60*M;
+    out.push("BEGIN:VEVENT","UID:"+s.id+"-"+sched.serve+"@brisket-scheduler","DTSTAMP:"+stamp,
+      "DTSTART:"+icsDate(s.t),"DTEND:"+icsDate(end),
+      "SUMMARY:"+icsEsc("Brisket: "+s.label),"DESCRIPTION:"+icsEsc(s.det||""),
+      "BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:"+icsEsc("Brisket: "+s.label),"TRIGGER:-PT0M","END:VALARM",
+      "END:VEVENT");
+  });
+  out.push("END:VCALENDAR");
+  return out.join("\r\n");
+}
+function timelineText(){
+  if (!sched) return "";
+  var p = state.plan;
+  var lines = ["Brisket plan: "+p.weight+" lb @ "+p.temp+"°F, wrap: "+p.wrap+", rest "+p.rest+"h"];
+  sched.steps.forEach(function(s){
+    if (s.id === "rest") lines.push("        Rest "+sched.rest+"h");
+    else lines.push(fmtDay(s.t)+" "+fmtTime(s.t)+"  "+s.label);
+  });
+  return lines.join("\n");
+}
+
+/* ---------- inputs ---------- */
+var fields = ["serve","weight","temp","rest","buffer","preheat","brine"];
+function fillInputs(){
+  fields.forEach(function(f){ $(f).value = state.plan[f]; });
+  syncWrap();
+  $("notes").value = state.notes; $("rating").value = state.rating;
+}
+function syncWrap(){
+  [].forEach.call($("wrapSeg").children, function(b){ b.classList.toggle("on", b.dataset.v === state.plan.wrap); });
+}
+fields.forEach(function(f){
+  $(f).addEventListener("input", function(){
+    var v = $(f).value;
+    state.plan[f] = (f === "serve") ? v : (v === "" ? state.plan[f] : +v);
+    save(); render(); refreshIcs();
+  });
+});
+$("wrapSeg").addEventListener("click", function(e){
+  var b = e.target.closest("button"); if (!b) return;
+  state.plan.wrap = b.dataset.v; syncWrap(); save(); render(); refreshIcs();
+});
+$("timeline").addEventListener("click", function(e){
+  var b = e.target.closest(".chk"); if (!b) return;
+  var id = b.dataset.id;
+  if (state.done[id]) delete state.done[id]; else state.done[id] = Date.now();
+  save(); render();
+});
+$("resetChecks").addEventListener("click", function(){
+  if (!Object.keys(state.done).length) return;
+  if (confirm("Clear all checkmarks?")){ state.done = {}; save(); render(); }
+});
+
+function refreshIcs(){ setDownload($("icsBtn"), "brisket-scheduler.ics", "text/calendar", buildIcs()); }
+
+function copyText(t){
+  var p = (window.host && host.copy) ? host.copy(t) : navigator.clipboard.writeText(t);
+  Promise.resolve(p).then(function(){ toast("Copied"); }, function(){ toast("Couldn't copy"); });
+}
+$("copyBtn").addEventListener("click", function(){ copyText(timelineText()); });
+$("copyJson").addEventListener("click", function(){ copyText(JSON.stringify(state.history, null, 2)); });
+
+$("addTemp").addEventListener("click", function(){
+  var meat = $("tMeat").value, pit = $("tPit").value, note = $("tNote").value.trim();
+  if (meat === "" && pit === "" && !note){ toast("Enter a temp or note"); return; }
+  state.temps.push({t:Date.now(), meat: meat===""?null:+meat, pit: pit===""?null:+pit, note:note});
+  $("tMeat").value = ""; $("tNote").value = "";
+  save(); renderTemps(); toast("Logged");
+});
+$("tempList").addEventListener("click", function(e){
+  var b = e.target.closest("[data-del]"); if (!b) return;
+  if (confirm("Delete this reading?")){ state.temps.splice(+b.dataset.del, 1); save(); renderTemps(); }
+});
+$("notes").addEventListener("input", function(){ state.notes = $("notes").value; save(); });
+$("rating").addEventListener("change", function(){ state.rating = $("rating").value; save(); });
+$("saveCook").addEventListener("click", function(){
+  if (!confirm("Save this cook to History and start a fresh log?")) return;
+  state.history.push({savedAt:new Date().toISOString(), plan:JSON.parse(JSON.stringify(state.plan)),
+    done:state.done, temps:state.temps, notes:state.notes, rating:state.rating});
+  state.done = {}; state.temps = []; state.notes = ""; state.rating = "";
+  save(); fillInputs(); render(); toast("Saved to History");
+});
+
+document.querySelector(".tabs").addEventListener("click", function(e){
+  var b = e.target.closest("button"); if (!b) return;
+  [].forEach.call(this.children, function(x){ x.classList.toggle("on", x === b); });
+  ["plan","cook","history"].forEach(function(t){ $("tab-"+t).classList.toggle("hide", t !== b.dataset.tab); });
+});
+
+var tt;
+function toast(msg){ var t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(tt); tt = setTimeout(function(){ t.classList.remove("show"); }, 1600); }
+
+fillInputs(); render(); refreshIcs();
+setInterval(render, 30000);
+document.addEventListener("visibilitychange", function(){ if (!document.hidden) render(); });
+})();
+</script>
+</body>
+</html>

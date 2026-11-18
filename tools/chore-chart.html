@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="htmlboard-icon" content="⭐">
+<title>Chore Chart</title>
+<style>
+  :root {
+    --bg:#fff8ec; --card:#ffffff; --ink:#2b2118; --muted:#8a7a68; --line:#f0e3cf;
+    --accent:#f59f00; --accent-ink:#7a4b00; --accent-soft:#fff0c7; --kid:#f59f00; --kid-soft:#fff0c7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#17130e; --card:#231d16; --ink:#fbf3e6; --muted:#b5a38c; --line:#3a3026;
+            --accent:#ffc24b; --accent-ink:#ffe3a3; --accent-soft:#3d2f14; --kid-soft:#3a2f1f; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:16px/1.35 ui-rounded, -apple-system, system-ui, sans-serif; -webkit-text-size-adjust:100%;
+         padding:calc(env(safe-area-inset-top) + 18px) 14px calc(env(safe-area-inset-bottom) + 28px); }
+  main { max-width:640px; margin:0 auto; }
+  h1 { font-size:32px; margin:0; letter-spacing:-0.01em; }
+  .sub { color:var(--muted); margin:2px 0 16px; }
+
+  .kids { display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; }
+  .kid { flex:none; display:flex; align-items:center; gap:8px; font:inherit; font-weight:700; padding:8px 14px 8px 8px;
+         border-radius:999px; border:2px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer; }
+  .kid .av { width:32px; height:32px; border-radius:50%; display:grid; place-items:center; font-size:18px; background:var(--kid-soft); }
+  .kid.on { border-color:var(--kc); background:var(--kc); color:#fff; }
+  .kid.on .av { background:rgba(255,255,255,.3); }
+  .kid.add { padding:8px 14px; color:var(--muted); font-weight:600; }
+
+  .hero { margin-top:14px; background:var(--card); border:1px solid var(--line); border-radius:22px; padding:16px; display:flex; gap:14px; align-items:center; }
+  .big { font-size:40px; font-weight:800; line-height:1; color:var(--kc); }
+  .big small { font-size:16px; color:var(--muted); font-weight:600; }
+  .prog { height:12px; border-radius:99px; background:var(--line); overflow:hidden; margin:8px 0 6px; }
+  .prog i { display:block; height:100%; background:var(--kc); border-radius:99px; transition:width .4s; }
+  .goal { font-size:14px; color:var(--muted); }
+  .goal b { color:var(--ink); }
+  .grow { flex:1; min-width:0; }
+
+  .grid { margin-top:14px; background:var(--card); border:1px solid var(--line); border-radius:22px; padding:8px 10px 10px; }
+  .gr { display:grid; grid-template-columns:repeat(7, 1fr); gap:6px 5px; align-items:center; padding:9px 0; }
+  .gr + .gr { border-top:1px dashed var(--line); }
+  .gr > .cn, .gr > .sp { grid-column:1 / -1; }
+  .gr > .sp { display:none; }
+  .gh { font-size:11px; font-weight:700; color:var(--muted); text-align:center; text-transform:uppercase; }
+  .gh.today { color:var(--kc); }
+  .cn { display:flex; align-items:center; gap:8px; min-width:0; }
+  .cn .em { font-size:20px; flex:none; width:26px; text-align:center; }
+  .cn .nm { font-weight:650; font-size:16px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cn .fr { font-size:12px; color:var(--muted); font-weight:600; }
+  .cell { width:100%; max-width:46px; aspect-ratio:1; justify-self:center; border-radius:12px; border:2px solid var(--line); background:none; padding:0; cursor:pointer;
+          font-size:20px; line-height:1; -webkit-tap-highlight-color:transparent; transition:transform .12s; }
+  .cell.off { border:none; background:none; cursor:default; display:grid; place-items:center; }
+  .cell.off::after { content:"·"; color:var(--line); font-size:22px; }
+  .cell.today:not(.on) { border-color:var(--kc); background:var(--kid-soft); }
+  .cell.on { border-color:transparent; background:var(--kid-soft); }
+  .cell:active:not(.off) { transform:scale(.88); }
+  @keyframes pop { 0%{transform:scale(.4)} 70%{transform:scale(1.25)} 100%{transform:scale(1)} }
+  .cell.pop { animation:pop .35s ease-out; }
+  @media (min-width:600px) {
+    .gr { grid-template-columns:minmax(0,1fr) repeat(7, 44px); }
+    .gr > .cn, .gr > .sp { grid-column:auto; }
+    .gr > .sp { display:block; }
+  }
+  .del { border:0; background:none; color:var(--muted); font-size:16px; cursor:pointer; padding:0 4px; }
+
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:22px 4px 8px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:20px; padding:12px; }
+  .sugs { display:flex; flex-wrap:wrap; gap:6px; }
+  .sug { font:inherit; font-size:14px; padding:7px 11px; border-radius:999px; border:1px solid var(--line); background:var(--bg); color:var(--ink); cursor:pointer; }
+  .sug.have { opacity:.4; }
+  .grp { font-size:12px; font-weight:700; color:var(--muted); margin:10px 2px 6px; }
+  .grp:first-child { margin-top:0; }
+  .row { display:flex; gap:8px; margin-top:8px; }
+  input, select { font:inherit; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:var(--bg); color:var(--ink); min-width:0; }
+  input { flex:1; }
+  .btn { font:inherit; font-weight:700; border:0; border-radius:12px; padding:10px 14px; background:var(--accent); color:#fff; cursor:pointer; }
+  .btn.soft { background:var(--accent-soft); color:var(--accent-ink); }
+  .note { color:var(--muted); font-size:13px; text-align:center; margin-top:24px; }
+  .confetti { position:fixed; pointer-events:none; font-size:22px; animation:fly 1.1s ease-out forwards; z-index:9; }
+  @keyframes fly { to { transform:translate(var(--dx), var(--dy)) rotate(var(--r)); opacity:0; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Chore Chart</h1>
+  <p class="sub" id="sub"></p>
+
+  <div class="kids" id="kids"></div>
+
+  <div class="hero">
+    <div class="big" id="stars"></div>
+    <div class="grow">
+      <div class="prog"><i id="bar"></i></div>
+      <div class="goal" id="goal"></div>
+    </div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <h2>Add a chore</h2>
+  <div class="card">
+    <div id="sugs"></div>
+    <div class="row">
+      <input id="own" placeholder="Or type your own" maxlength="30">
+      <select id="freq"><option value="daily">Every day</option><option value="few">Mon · Wed · Fri</option><option value="weekly">Saturday</option></select>
+      <button class="btn" id="addOwn">Add</button>
+    </div>
+  </div>
+
+  <h2 id="setTitle">Reward</h2>
+  <div class="card">
+    <div class="row" style="margin-top:0">
+      <input id="reward" maxlength="40" placeholder="Reward">
+      <input id="target" type="number" min="5" max="99" style="flex:none;width:72px" aria-label="Stars needed">
+    </div>
+    <div class="row">
+      <input id="kidName" maxlength="16" placeholder="Name">
+      <select id="kidEmoji"></select>
+      <button class="btn soft" id="removeKid">Remove</button>
+    </div>
+  </div>
+
+  <p class="note">Tap a box to earn a star. A new chart starts every Monday.</p>
+</main>
+<script>
+const KEY = "chorechart.v1";
+const KID_COLORS = ["#f59f00", "#4c6ef5", "#e64980", "#12b886", "#7950f2"];
+const AVATARS = ["🦊", "🐼", "🦄", "🐯", "🐸", "🐙", "🦖", "🐨", "🚀", "⚽️", "🎨", "🎸"];
+const ORDER = [1, 2, 3, 4, 5, 6, 0]; // Monday first
+const DN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const FREQ = { daily: [0, 1, 2, 3, 4, 5, 6], few: [1, 3, 5], weekly: [6] };
+
+// Typical chores for ages 8 to 11, grouped by how often they're done.
+const SUGGEST = {
+  "Every day": [["🛏️", "Make bed"], ["🧺", "Clothes in hamper"], ["🍽️", "Clear own dishes"], ["🐶", "Feed the pet"], ["🎒", "Pack school bag"], ["🪥", "Brush teeth"]],
+  "A few times a week": [["🍴", "Set the table"], ["🫧", "Unload dishwasher"], ["👕", "Put away laundry"], ["🗑️", "Take out trash"], ["♻️", "Recycling"], ["🪴", "Water plants"]],
+  "Once a week": [["🧹", "Vacuum a room"], ["🧽", "Wipe bathroom sink"], ["🪶", "Dust"], ["🧸", "Tidy bedroom"], ["🥕", "Help cook dinner"], ["🧦", "Fold towels"]]
+};
+const GROUP_FREQ = { "Every day": "daily", "A few times a week": "few", "Once a week": "weekly" };
+
+const pad = n => String(n).padStart(2, "0");
+const dkey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const monday = d => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
+const uid = () => Math.random().toString(36).slice(2, 10);
+const chore = (em, name, freq) => ({ id: uid(), em, name, days: FREQ[freq] });
+
+function seed() {
+  return {
+    sel: 0,
+    kids: [
+      { id: uid(), name: "Maya", av: "🦄", color: KID_COLORS[2], reward: "Pick Friday movie night", target: 20,
+        chores: [chore("🛏️", "Make bed", "daily"), chore("🎒", "Pack school bag", "daily"), chore("🐶", "Feed the pet", "daily"),
+                 chore("🍴", "Set the table", "few"), chore("👕", "Put away laundry", "few"), chore("🧸", "Tidy bedroom", "weekly")], weeks: {} },
+      { id: uid(), name: "Leo", av: "🦖", color: KID_COLORS[1], reward: "Extra 30 min of games", target: 18,
+        chores: [chore("🛏️", "Make bed", "daily"), chore("🍽️", "Clear own dishes", "daily"), chore("🗑️", "Take out trash", "few"),
+                 chore("🪴", "Water plants", "few"), chore("🧹", "Vacuum a room", "weekly")], weeks: {} }
+    ]
+  };
+}
+
+let state;
+try { state = JSON.parse(localStorage.getItem(KEY)); } catch { state = null; }
+if (!state || !Array.isArray(state.kids) || !state.kids.length) state = seed();
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
+
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const kid = () => state.kids[Math.min(state.sel, state.kids.length - 1)];
+const week = () => dkey(monday(new Date()));
+const marks = k => (k.weeks[week()] = k.weeks[week()] || {});
+const count = k => Object.values(k.weeks[week()] || {}).reduce((a, v) => a + v.length, 0);
+const possible = k => k.chores.reduce((a, c) => a + c.days.length, 0);
+
+function render() {
+  const k = kid(), today = new Date().getDay();
+  document.documentElement.style.setProperty("--kc", k.color);
+  const m = monday(new Date());
+  document.getElementById("sub").textContent = "Week of " + m.toLocaleDateString([], { month: "long", day: "numeric" });
+
+  const kids = document.getElementById("kids"); kids.innerHTML = "";
+  state.kids.forEach((x, i) => {
+    const b = el("button", "kid" + (x === k ? " on" : ""));
+    b.style.setProperty("--kc", x.color);
+    b.append(el("span", "av", x.av), el("span", null, x.name), el("span", null, "· " + count(x) + "⭐"));
+    b.onclick = () => { state.sel = i; save(); render(); };
+    kids.append(b);
+  });
+  if (state.kids.length < 5) {
+    const add = el("button", "kid add", "+ Add child");
+    add.onclick = () => { const i = state.kids.length;
+      state.kids.push({ id: uid(), name: "Child " + (i + 1), av: AVATARS[(i * 5) % AVATARS.length], color: KID_COLORS[i % KID_COLORS.length],
+        reward: "Choose a weekend treat", target: 25, chores: [chore("🛏️", "Make bed", "daily"), chore("🍽️", "Clear own dishes", "daily")], weeks: {} });
+      state.sel = i; save(); render(); document.getElementById("kidName").focus(); };
+    kids.append(add);
+  }
+
+  const n = count(k), t = k.target || 25;
+  document.getElementById("stars").innerHTML = `${n}<small> ⭐</small>`;
+  document.getElementById("bar").style.width = Math.min(100, n / t * 100) + "%";
+  document.getElementById("goal").innerHTML = n >= t ? `🎉 <b>${esc(k.reward)}</b> earned!`
+    : t > possible(k) ? `Goal is ${t} ⭐ but only ${possible(k)} are possible this week. Lower it below.`
+    : `<b>${t - n} more</b> for ${esc(k.reward || "the reward")}`;
+
+  const grid = document.getElementById("grid"); grid.innerHTML = "";
+  const head = el("div", "gr"); head.append(el("div", "sp"));
+  ORDER.forEach(d => head.append(el("div", "gh" + (d === today ? " today" : ""), DN[d].slice(0, 2))));
+  grid.append(head);
+  const mk = marks(k);
+  k.chores.forEach(c => {
+    const r = el("div", "gr");
+    const cn = el("div", "cn"); const txt = el("div", "grow");
+    txt.append(el("div", "nm", c.name), el("div", "fr", c.days.length === 7 ? "Every day" : c.days.length === 1 ? "Weekly" : c.days.length + "× a week"));
+    const del = el("button", "del", "×"); del.setAttribute("aria-label", "Remove " + c.name);
+    del.onclick = () => { k.chores = k.chores.filter(z => z !== c); delete mk[c.id]; save(); render(); };
+    cn.append(el("span", "em", c.em), txt, del); r.append(cn);
+    ORDER.forEach(d => {
+      if (!c.days.includes(d)) { r.append(el("div", "cell off")); return; }
+      const on = (mk[c.id] || []).includes(d);
+      const b = el("button", "cell" + (on ? " on" : "") + (d === today ? " today" : ""), on ? "⭐" : "");
+      b.setAttribute("aria-label", c.name + " " + DN[d]);
+      b.onclick = ev => {
+        const list = mk[c.id] = mk[c.id] || [];
+        const before = count(k) >= (k.target || 25);
+        if (list.includes(d)) list.splice(list.indexOf(d), 1); else list.push(d);
+        save(); render();
+        const nb = [...grid.querySelectorAll(".cell")].find(x => x.getAttribute("aria-label") === c.name + " " + DN[d]);
+        if (!on && nb) { nb.classList.add("pop"); if (!before && count(k) >= (k.target || 25)) burst(ev.clientX, ev.clientY); }
+      };
+      r.append(b);
+    });
+    grid.append(r);
+  });
+  if (!k.chores.length) grid.append(el("p", "goal", "Pick a few chores below to start."));
+
+  // Suggestions
+  const s = document.getElementById("sugs"); s.innerHTML = "";
+  Object.entries(SUGGEST).forEach(([g, items]) => {
+    s.append(el("div", "grp", g));
+    const wrap = el("div", "sugs");
+    items.forEach(([em, name]) => {
+      const have = k.chores.some(c => c.name === name);
+      const b = el("button", "sug" + (have ? " have" : ""), em + " " + name);
+      b.onclick = () => { if (have) return; k.chores.push(chore(em, name, GROUP_FREQ[g])); save(); render(); };
+      wrap.append(b);
+    });
+    s.append(wrap);
+  });
+
+  document.getElementById("setTitle").textContent = k.name + "'s reward";
+  reward.value = k.reward || ""; target.value = t; kidName.value = k.name;
+  kidEmoji.innerHTML = ""; AVATARS.forEach(a => { const o = el("option", null, a); o.value = a; kidEmoji.append(o); }); kidEmoji.value = k.av;
+  removeKid.style.display = state.kids.length > 1 ? "" : "none";
+}
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+function burst(x, y) {
+  for (let i = 0; i < 16; i++) {
+    const s = el("div", "confetti", ["⭐", "🎉", "✨"][i % 3]);
+    s.style.left = x + "px"; s.style.top = y + "px";
+    s.style.setProperty("--dx", (Math.random() * 240 - 120) + "px");
+    s.style.setProperty("--dy", (Math.random() * -220 - 40) + "px");
+    s.style.setProperty("--r", (Math.random() * 360) + "deg");
+    document.body.append(s); setTimeout(() => s.remove(), 1200);
+  }
+}
+
+addOwn.onclick = () => { const name = own.value.trim(); if (!name) return;
+  kid().chores.push(chore("✅", name, freq.value)); own.value = ""; save(); render(); };
+own.onkeydown = e => { if (e.key === "Enter") addOwn.onclick(); };
+reward.onchange = () => { kid().reward = reward.value.trim(); save(); render(); };
+target.onchange = () => { kid().target = Math.max(5, Math.min(99, Number(target.value) || 25)); save(); render(); };
+kidName.onchange = () => { kid().name = kidName.value.trim() || kid().name; save(); render(); };
+kidEmoji.onchange = () => { kid().av = kidEmoji.value; save(); render(); };
+let armed = false;
+removeKid.onclick = () => {
+  if (!armed) { armed = true; removeKid.textContent = "Tap again"; setTimeout(() => { armed = false; removeKid.textContent = "Remove"; }, 2500); return; }
+  state.kids.splice(state.sel, 1); state.sel = 0; armed = false; removeKid.textContent = "Remove"; save(); render();
+};
+
+render();
+</script>
+</body>
+</html>
