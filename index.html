@@ -56,6 +56,7 @@ header nav a:hover{color:#fff}
 .step p{margin:0;color:var(--muted);font-size:15px}
 
 /* gallery */
+#tools{margin:0 0 48px}
 h2{font-size:28px;margin:0 0 6px;font-weight:900}
 .sub{margin:0 0 20px;color:var(--muted)}
 .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
@@ -136,69 +137,6 @@ footer a{color:#fff}
       <a class="btn soft" href="#make">Make your own</a>
       <a class="btn soft" href="https://apps.apple.com/app/htmlboard/id6828721543">Get HTMLBoard on the App Store</a>
     </div>
-  </section>
-
-  <section class="maker" id="make" aria-labelledby="make-h">
-    <h2 id="make-h">Make your own tool</h2>
-    <p class="sub" style="margin:0">Tap a few choices. We'll write the prompt for you. Paste it into any AI chat, like Claude, ChatGPT or Gemini.</p>
-
-    <div class="q"><span class="ql">1. Who is it for?</span>
-      <div class="chips" data-q="who">
-        <button class="chip" data-v="me" aria-pressed="true">Me</button>
-        <button class="chip" data-v="kids">My kids</button>
-        <button class="chip" data-v="family">My family</button>
-        <button class="chip" data-v="group">A class or team</button>
-        <button class="chip" data-v="event">An event</button>
-      </div>
-    </div>
-
-
-    <div class="q"><span class="ql">2. What kind of tool?</span>
-      <div class="chips" data-q="kind">
-        <button class="chip" data-v="tracker" aria-pressed="true">📈 Tracker</button>
-        <button class="chip" data-v="planner">🗓️ Planner</button>
-        <button class="chip" data-v="checklist">✅ Checklist</button>
-        <button class="chip" data-v="quiz">🧠 Quiz or flashcards</button>
-        <button class="chip" data-v="timer">⏱️ Timer</button>
-        <button class="chip" data-v="calculator">🧮 Calculator</button>
-        <button class="chip" data-v="explainer">🔬 How-it-works explainer</button>
-        <button class="chip" data-v="game">🎲 Game</button>
-      </div>
-    </div>
-
-    <div class="q"><label for="topic">3. What's it about?</label>
-      <input type="text" id="topic" placeholder="e.g. chores and allowance, a wedding budget, spelling words, smoking a brisket">
-    </div>
-
-    <div class="q"><span class="ql">4. Extras <small>(tap any)</small></span>
-      <div class="chips multi" data-q="extras">
-        <button class="chip" data-v="stars" aria-pressed="false">⭐ Stars and rewards</button>
-        <button class="chip" data-v="big" aria-pressed="false">👆 Extra-big buttons</button>
-        <button class="chip" data-v="dark" aria-pressed="false">🌙 Dark mode</button>
-        <button class="chip" data-v="sound" aria-pressed="false">🔊 Sounds</button>
-        <button class="chip" data-v="history" aria-pressed="false">🗂️ History log</button>
-        <button class="chip" data-v="print" aria-pressed="false">🖨️ Print-friendly</button>
-      </div>
-    </div>
-
-    <div class="q"><label for="notes">5. Anything else? <small>(optional)</small></label>
-      <textarea id="notes" rows="3" placeholder="e.g. Use our family's names: Ava, Ben and Cole. Make Saturday a no-chore day. Blue and green colors."></textarea>
-    </div>
-
-    <div class="out" aria-live="polite">
-      <div class="ql">Your prompt</div>
-      <textarea id="prompt" aria-label="Your prompt" spellcheck="false"></textarea>
-      <div class="row">
-        <button class="btn go" id="copyPrompt" type="button">📋 Copy prompt</button>
-      </div>
-      <p>Then share the HTML file your AI makes to HTMLBoard. You can edit the prompt above before you copy it.</p>
-    </div>
-  </section>
-
-  <section class="steps" aria-label="How it works">
-    <div class="step"><b>1</b><h3>Ask an AI</h3><p>Describe the tool you want in plain words. Ask for it as a single HTML file.</p></div>
-    <div class="step"><b>2</b><h3>Share it to HTMLBoard</h3><p>Share the file from your AI chat, Files, Mail or Messages.</p></div>
-    <div class="step"><b>3</b><h3>Use it anytime</h3><p>It stays on your phone, keeps what you save, and works without the internet.</p></div>
   </section>
 
   <section id="tools">
@@ -357,6 +295,69 @@ footer a{color:#fff}
         </div>
       </article>
     </div>
+  </section>
+
+  <section class="maker" id="make" aria-labelledby="make-h">
+    <h2 id="make-h">Make your own tool</h2>
+    <p class="sub" style="margin:0">Tap a few choices. We'll write the prompt for you. Paste it into any AI chat, like Claude, ChatGPT or Gemini.</p>
+
+    <div class="q"><span class="ql">1. Who is it for?</span>
+      <div class="chips" data-q="who">
+        <button class="chip" data-v="me" aria-pressed="true">Me</button>
+        <button class="chip" data-v="kids">My kids</button>
+        <button class="chip" data-v="family">My family</button>
+        <button class="chip" data-v="group">A class or team</button>
+        <button class="chip" data-v="event">An event</button>
+      </div>
+    </div>
+
+
+    <div class="q"><span class="ql">2. What kind of tool?</span>
+      <div class="chips" data-q="kind">
+        <button class="chip" data-v="tracker" aria-pressed="true">📈 Tracker</button>
+        <button class="chip" data-v="planner">🗓️ Planner</button>
+        <button class="chip" data-v="checklist">✅ Checklist</button>
+        <button class="chip" data-v="quiz">🧠 Quiz or flashcards</button>
+        <button class="chip" data-v="timer">⏱️ Timer</button>
+        <button class="chip" data-v="calculator">🧮 Calculator</button>
+        <button class="chip" data-v="explainer">🔬 How-it-works explainer</button>
+        <button class="chip" data-v="game">🎲 Game</button>
+      </div>
+    </div>
+
+    <div class="q"><label for="topic">3. What's it about?</label>
+      <input type="text" id="topic" placeholder="e.g. chores and allowance, a wedding budget, spelling words, smoking a brisket">
+    </div>
+
+    <div class="q"><span class="ql">4. Extras <small>(tap any)</small></span>
+      <div class="chips multi" data-q="extras">
+        <button class="chip" data-v="stars" aria-pressed="false">⭐ Stars and rewards</button>
+        <button class="chip" data-v="big" aria-pressed="false">👆 Extra-big buttons</button>
+        <button class="chip" data-v="dark" aria-pressed="false">🌙 Dark mode</button>
+        <button class="chip" data-v="sound" aria-pressed="false">🔊 Sounds</button>
+        <button class="chip" data-v="history" aria-pressed="false">🗂️ History log</button>
+        <button class="chip" data-v="print" aria-pressed="false">🖨️ Print-friendly</button>
+      </div>
+    </div>
+
+    <div class="q"><label for="notes">5. Anything else? <small>(optional)</small></label>
+      <textarea id="notes" rows="3" placeholder="e.g. Use our family's names: Ava, Ben and Cole. Make Saturday a no-chore day. Blue and green colors."></textarea>
+    </div>
+
+    <div class="out" aria-live="polite">
+      <div class="ql">Your prompt</div>
+      <textarea id="prompt" aria-label="Your prompt" spellcheck="false"></textarea>
+      <div class="row">
+        <button class="btn go" id="copyPrompt" type="button">📋 Copy prompt</button>
+      </div>
+      <p>Then share the HTML file your AI makes to HTMLBoard. You can edit the prompt above before you copy it.</p>
+    </div>
+  </section>
+
+  <section class="steps" aria-label="How it works">
+    <div class="step"><b>1</b><h3>Ask an AI</h3><p>Describe the tool you want in plain words. Ask for it as a single HTML file.</p></div>
+    <div class="step"><b>2</b><h3>Share it to HTMLBoard</h3><p>Share the file from your AI chat, Files, Mail or Messages.</p></div>
+    <div class="step"><b>3</b><h3>Use it anytime</h3><p>It stays on your phone, keeps what you save, and works without the internet.</p></div>
   </section>
 
   <section class="keep">
