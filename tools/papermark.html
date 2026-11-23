@@ -179,6 +179,7 @@ textarea.field{height:140px;padding:10px 12px;resize:vertical;line-height:1.4}
 #scTorch{width:58px;height:58px;border-radius:50%;background:rgba(30,31,36,.75);font-size:22px}
 #scTorch.on{background:var(--acc);color:#1b1b1b}
 #scFlash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:3;transition:opacity .25s}
+#scan.replacing [data-sc=left],#scan.replacing [data-sc=right],#scan.replacing [data-sc=del],#scan.replacing [data-sc=applyall],#scan.replacing #scStrip{display:none!important}
 input[type=file]{display:none}
 @media (max-width:420px){#top .ib{width:40px}#title{font-size:16px}}
 </style>
@@ -258,11 +259,11 @@ input[type=file]{display:none}
   <div id="scCtl">
     <div class="scrow" id="scRow1">
       <button class="chip" data-sc="corners">◰ Corners</button><button class="chip" data-sc="result">▣ Result</button><span class="sep"></span>
-      <button class="chip" data-sc="auto">Auto corners</button><button class="chip" data-sc="full">Whole photo</button><button class="chip" data-sc="rot">⟳ Rotate</button>
+      <button class="chip" data-sc="auto">Try auto-detect</button><button class="chip" data-sc="full">Whole photo</button><button class="chip" data-sc="rot">⟳ Rotate</button>
       <button class="chip" data-sc="left">◀</button><button class="chip" data-sc="right">▶</button><button class="chip" data-sc="del" style="color:var(--danger)">Delete</button>
     </div>
     <div class="scrow" id="scRow2">
-      <button class="chip" data-f="none">Original</button><button class="chip" data-f="enhance">Enhanced</button><button class="chip" data-f="gray">Grayscale</button><button class="chip" data-f="bw">Black &amp; white</button>
+      <button class="chip" data-f="none">Original</button><button class="chip" data-f="gray">Grayscale</button><button class="chip" data-f="bw">Black &amp; white</button>
       <span class="sep"></span><button class="chip" data-sc="applyall">Use on all pages</button>
     </div>
     <div class="scrow"><span class="lbl">Contrast</span><input type="range" id="scCon" min="-60" max="60" step="1" value="0"><span class="val" id="scConV">0</span></div>
@@ -273,7 +274,7 @@ input[type=file]{display:none}
 <section id="scCam" class="hide">
   <video id="scVideo" playsinline muted autoplay></video><svg id="scCamSvg" xmlns="http://www.w3.org/2000/svg"></svg><div id="scFlash"></div>
   <div id="scCamTop"><button class="btn" id="scCamX">Cancel</button><button class="btn pri" id="scCamDone">Done</button></div>
-  <div id="scCamHint">Hold steady over the page and tap the button</div>
+  <div id="scCamHint">Tap the button for each page · set the corners after</div>
   <div id="scCamBot"><button id="scLast" aria-label="Review"></button><button id="scShutter" aria-label="Take photo"></button><button id="scTorch" aria-label="Flashlight">ϟ</button></div>
 </section>
 <div id="scrim" class="hide"></div>
@@ -822,8 +823,8 @@ function placeSelbar() {
   const box = pageEls.get(S.sel.pid).ann.querySelector('.selbox'); if (!box) return;
   const r = box.getBoundingClientRect(); const sc = $('scroller').getBoundingClientRect();
   if (r.bottom < sc.top || r.top > sc.bottom) { bar.classList.add('hide'); return; }
-  const editable = a.t === 'text' || a.t === 'note';
-  bar.innerHTML = (editable ? '<button data-s="edit">Edit</button>' : '') + '<button data-s="dup">Duplicate</button><button data-s="front">To front</button><button class="del" data-s="del">Delete</button>';
+  const editable = a.t === 'text' || a.t === 'note' || (a.t === 'img' && a.scan);
+  bar.innerHTML = (editable ? `<button data-s="edit">${a.t === 'img' ? 'Edit scan' : 'Edit'}</button>` : '') + '<button data-s="dup">Duplicate</button><button data-s="front">To front</button><button class="del" data-s="del">Delete</button>';
   bar.classList.remove('hide');
   const bw = bar.offsetWidth, bh = bar.offsetHeight;
   let x = clamp(r.left + r.width / 2 - bw / 2, 8, window.innerWidth - bw - 8);
@@ -837,7 +838,7 @@ $('selbar').onclick = e => {
   if (k === 'del') deleteSel();
   else if (k === 'dup') { snap(); const c = JSON.parse(JSON.stringify(a)); c.id = uid(); moveA(c, 14, 14); p.annots.push(c); drawAnnots(p); select(p.id, c.id); changed(); }
   else if (k === 'front') { snap(); p.annots.splice(p.annots.indexOf(a), 1); p.annots.push(a); drawAnnots(p); changed(); }
-  else if (k === 'edit') { if (a.t === 'text') startTextEdit(p, a); else editNote(p, a); }
+  else if (k === 'edit') { if (a.t === 'text') startTextEdit(p, a); else if (a.t === 'img') editScan(p, a); else editNote(p, a); }
 };
 function deleteSel() { const p = pageById(S.sel.pid), a = selAnnot(); if (!a) return; snap(); p.annots.splice(p.annots.indexOf(a), 1); S.sel = null; hideSelbar(); drawAnnots(p); changed(); renderProps(); }
 
@@ -1407,6 +1408,7 @@ $('bMore').onclick = () => {
   const b = openSheet('More', `<div class="menu">
     <button data-m="contents">☰ Contents</button>
     <button data-m="scan">📷 Add scanned pages</button>
+    <button data-m="rescan" ${scannedOnPage(S.pages[S.cur]) ? '' : 'disabled'}>◰ Edit scan of this page <small>corners, color</small></button>
     <button data-m="form">▤ Fill form fields</button>
     <button data-m="goto">⇣ Go to page… <small>${S.cur + 1} of ${S.pages.length}</small></button>
     <button data-m="night">◐ Night reading <small>${S.night ? 'On' : 'Off'}</small></button>
@@ -1419,6 +1421,7 @@ $('bMore').onclick = () => {
     if (m === 'contents') outlineSheet();
     else if (m === 'form') formSheet();
     else if (m === 'scan') openScan(S.cur + 1);
+    else if (m === 'rescan') { const p = S.pages[S.cur]; editScan(p, scannedOnPage(p)); }
     else if (m === 'goto') $('badge').click();
     else if (m === 'night') { S.night = !S.night; LS.set('night', S.night); document.body.classList.toggle('night', S.night); }
     else if (m === 'focus') setFocus(true);
@@ -1577,13 +1580,13 @@ $('bPages').onclick = openOrg;
    Scan: photos → straightened pages. Corner pins, filters, Letter/A4.
    ===================================================================== */
 const SC = { items: [], cur: -1, mode: 'corners', insertAt: null, drag: null };
-const SC_DEF = () => Object.assign({ filter: 'enhance', con: 0, bri: 0 }, LS.get('scanLook', {}));
+const SC_DEF = () => ({ filter: 'none', con: 0, bri: 0 });   // every scan starts as the document's own color
 function openScan(insertAt) {
-  commitEdit(); SC.insertAt = insertAt; SC.items = []; SC.cur = -1; SC.mode = 'corners';
-  $('scan').classList.remove('hide'); $('scMake').textContent = insertAt == null ? 'Make PDF' : 'Add pages'; scRender();
+  commitEdit(); SC.insertAt = insertAt; SC.replace = null; SC.items = []; SC.cur = -1; SC.mode = 'corners';
+  $('scan').classList.remove('hide', 'replacing'); $('scMake').textContent = insertAt == null ? 'Make PDF' : 'Add pages'; scRender();
 }
 async function closeScan(force) {
-  if (!force && SC.items.length && !await ask('Discard scan?', `Discard ${SC.items.length} scanned page${SC.items.length > 1 ? 's' : ''}?`, 'Discard', true)) return;
+  if (!force && SC.items.length && !await ask(SC.replace ? 'Discard changes?' : 'Discard scan?', SC.replace ? 'Keep the page as it was?' : `Discard ${SC.items.length} scanned page${SC.items.length > 1 ? 's' : ''}?`, 'Discard', true)) return;
   closeCam(); SC.items.forEach(it => URL.revokeObjectURL(it.url)); SC.items = []; $('scan').classList.add('hide');
 }
 $('scCancel').onclick = () => closeScan(false);
@@ -1592,7 +1595,7 @@ $('scan').addEventListener('click', e => {
   const it = SC.items[SC.cur]; const k = b.dataset.sc;
   if (k === 'cam') return openCam();
   if (k === 'pick') return $('fImg').click();
-  if (b.dataset.f) { if (!it) return; it.filter = b.dataset.f; it.prev = null; LS.set('scanLook', { filter: it.filter, con: it.con, bri: it.bri }); SC.mode = 'result'; return scRender(); }
+  if (b.dataset.f) { if (!it) return; it.filter = b.dataset.f; it.prev = null; SC.mode = 'result'; return scRender(); }
   if (!it) return;
   if (k === 'corners' || k === 'result') { SC.mode = k; }
   else if (k === 'auto') { it.quad = detectQuad(it); it.prev = null; SC.mode = 'corners'; toast(it.autoFound ? 'Page edges found' : 'Couldn’t find the page edges — drag the corners'); }
@@ -1608,7 +1611,7 @@ $('fImg').onchange = e => { const f = [...e.target.files]; e.target.value = ''; 
 async function scAdd(files) {
   for (const [n, f] of files.entries()) {
     busy(files.length > 1 ? `Reading photo ${n + 1} of ${files.length}…` : 'Finding the page…');
-    try { const it = await scLoad(f); it.quad = detectQuad(it); SC.items.push(it); SC.cur = SC.items.length - 1; }
+    try { const it = await scLoad(f); it.quad = insetQuad(it); SC.items.push(it); SC.cur = SC.items.length - 1; }
     catch (e) { console.error(e); toast(errMsg(e), 4000); }
   }
   busy(); SC.mode = 'corners'; scRender();
@@ -1623,7 +1626,7 @@ function scLoad(file) {   // file or blob
       cv.toBlob(b => {
         if (!b) return rej(new Error('Could not read that photo.'));
         const url = URL.createObjectURL(b); const im2 = new Image();
-        im2.onload = () => { const d = SC_DEF(); res({ id: uid(), url, img: im2, w, h, rot: 0, filter: d.filter, con: d.con, bri: d.bri, prev: null }); };
+        im2.onload = () => { const d = SC_DEF(); res({ id: uid(), url, img: im2, blob: b, w, h, rot: 0, filter: d.filter, con: d.con, bri: d.bri, prev: null }); };
         im2.onerror = () => rej(new Error('Could not read that photo.')); im2.src = url;
       }, 'image/jpeg', 0.93);
     };
@@ -1633,33 +1636,64 @@ function scLoad(file) {   // file or blob
 }
 
 /* --- automatic page edge detection (bright page on a darker surface) --- */
+function insetQuad(it) { const m = 0.06; return [[it.w * m, it.h * m], [it.w * (1 - m), it.h * m], [it.w * (1 - m), it.h * (1 - m)], [it.w * m, it.h * (1 - m)]]; }
 function detectQuad(it) { const r = findPage(it.img, it.w, it.h, 360); it.autoFound = r.found; return r.quad; }
 let fpCv = null;
 function findPage(srcEl, sw, sh, M) {
+  // Looks for the largest bright, low-color region (paper) and fits a 4-corner shape to it.
+  // Tries three measures: how colorless each spot is (holds up under shadows), "whiteness", and
+  // plain brightness (for dark tables), and keeps whichever fits a page shape best.
   const it = { w: sw, h: sh };
-  const k = Math.min(1, M / Math.max(it.w, it.h)); const W = Math.max(8, Math.round(it.w * k)), H = Math.max(8, Math.round(it.h * k));
+  const k = Math.min(1, M / Math.max(it.w, it.h)); const W = Math.max(8, Math.round(it.w * k)), H = Math.max(8, Math.round(it.h * k)), N = W * H;
   const cv = fpCv || (fpCv = document.createElement('canvas')); cv.width = W; cv.height = H; const ctx = cv.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(srcEl, 0, 0, W, H); const d = ctx.getImageData(0, 0, W, H).data;
-  let g = new Float32Array(W * H); for (let i = 0; i < W * H; i++) g[i] = d[4 * i] * 0.299 + d[4 * i + 1] * 0.587 + d[4 * i + 2] * 0.114;
-  for (let pass = 0; pass < 2; pass++) { const o = new Float32Array(W * H); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let s = 0, n = 0; for (let dy = -2; dy <= 2; dy++) { const yy = y + dy; if (yy < 0 || yy >= H) continue; for (let dx = -2; dx <= 2; dx++) { const xx = x + dx; if (xx < 0 || xx >= W) continue; s += g[yy * W + xx]; n++; } } o[y * W + x] = s / n; } g = o; }
-  const hist = new Array(256).fill(0); for (const v of g) hist[v | 0]++;
-  let sum = 0; for (let i = 0; i < 256; i++) sum += i * hist[i];
-  let sB = 0, wB = 0, best = 0, t = 128; for (let i = 0; i < 256; i++) { wB += hist[i]; if (!wB) continue; const wF = W * H - wB; if (!wF) break; sB += i * hist[i]; const mB = sB / wB, mF = (sum - sB) / wF; const v = wB * wF * (mB - mF) * (mB - mF); if (v > best) { best = v; t = i; } }
-  const lab = new Int32Array(W * H).fill(-1); let bestArea = 0, bestLab = -1, cur = 0; const stack = [];
-  for (let i = 0; i < W * H; i++) {
-    if (lab[i] !== -1 || g[i] <= t) continue;
-    let area = 0; stack.push(i); lab[i] = cur;
-    while (stack.length) { const j = stack.pop(); area++; const x = j % W, y = (j / W) | 0; for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) { if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const q = ny * W + nx; if (lab[q] === -1 && g[q] > t) { lab[q] = cur; stack.push(q); } } }
-    if (area > bestArea) { bestArea = area; bestLab = cur; } cur++;
+  const feats = [new Float32Array(N), new Float32Array(N), new Float32Array(N)];
+  for (let i = 0; i < N; i++) {
+    const r = d[4 * i], g = d[4 * i + 1], b = d[4 * i + 2]; const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    feats[0][i] = mx < 45 ? 0 : clamp(255 * (1 - ((mx - mn) / mx) / 0.55), 0, 255);   // low color = paper, even in shadow
+    feats[1][i] = Math.max(0, mn * 1.15 - (mx - mn) * 0.6);                              // whiteness
+    feats[2][i] = r * 0.299 + g * 0.587 + b * 0.114;                                     // brightness
+  }
+  const blur = a => { const o = new Float32Array(N), t = new Float32Array(N); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let s = 0, n = 0; for (let dx = -2; dx <= 2; dx++) { const xx = x + dx; if (xx >= 0 && xx < W) { s += a[y * W + xx]; n++; } } t[y * W + x] = s / n; } for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let s = 0, n = 0; for (let dy = -2; dy <= 2; dy++) { const yy = y + dy; if (yy >= 0 && yy < H) { s += t[yy * W + x]; n++; } } o[y * W + x] = s / n; } return o; };
+  let best = null;
+  for (let fi = 0; fi < 3; fi++) {
+    const g = blur(feats[fi]);
+    const hist = new Array(256).fill(0); for (const v of g) hist[Math.min(255, v | 0)]++;
+    let sum = 0; for (let i = 0; i < 256; i++) sum += i * hist[i];
+    let sB = 0, wB = 0, bv = 0, t = 128; for (let i = 0; i < 256; i++) { wB += hist[i]; if (!wB) continue; const wF = N - wB; if (!wF) break; sB += i * hist[i]; const mB = sB / wB, mF = (sum - sB) / wF; const v = wB * wF * (mB - mF) * (mB - mF); if (v > bv) { bv = v; t = i; } }
+    // largest connected bright region
+    const lab = new Int32Array(N).fill(-1); let bestArea = 0, bestLab = -1, cur = 0; const stack = [];
+    for (let i = 0; i < N; i++) {
+      if (lab[i] !== -1 || g[i] <= t) continue; let area = 0; stack.push(i); lab[i] = cur;
+      while (stack.length) { const j = stack.pop(); area++; const x = j % W, y = (j / W) | 0; if (x + 1 < W) { const q = j + 1; if (lab[q] === -1 && g[q] > t) { lab[q] = cur; stack.push(q); } } if (x > 0) { const q = j - 1; if (lab[q] === -1 && g[q] > t) { lab[q] = cur; stack.push(q); } } if (y + 1 < H) { const q = j + W; if (lab[q] === -1 && g[q] > t) { lab[q] = cur; stack.push(q); } } if (y > 0) { const q = j - W; if (lab[q] === -1 && g[q] > t) { lab[q] = cur; stack.push(q); } } }
+      if (area > bestArea) { bestArea = area; bestLab = cur; } cur++;
+    }
+    const frac = bestArea / N; if (bestLab < 0 || frac < 0.08 || frac > 0.995) continue;
+    let inSum = 0, inN = 0, outSum = 0, outN = 0;
+    for (let i = 0; i < N; i++) { if (lab[i] === bestLab) { inSum += g[i]; inN++; } else { outSum += g[i]; outN++; } }
+    const sep = inSum / inN - (outN ? outSum / outN : 0);
+    // candidate corners: extremes in 8 directions; choose the 4 that enclose the most area
+    const dirs = [[1, 1], [1, -1], [-1, 1], [-1, -1], [1, 0], [-1, 0], [0, 1], [0, -1]], ext = dirs.map(() => [-Infinity, null]);
+    for (let i = 0; i < N; i++) { if (lab[i] !== bestLab) continue; const x = i % W, y = (i / W) | 0; for (let k2 = 0; k2 < 8; k2++) { const v = dirs[k2][0] * x + dirs[k2][1] * y; if (v > ext[k2][0]) ext[k2] = [v, [x + 0.5, y + 0.5]]; } }
+    const C = ext.map(e => e[1]);
+    let bq = null, ba = 0;
+    for (let a = 0; a < 8; a++) for (let b = a + 1; b < 8; b++) for (let c = b + 1; c < 8; c++) for (let e = c + 1; e < 8; e++) { const q = orderQuad([C[a], C[b], C[c], C[e]]); const ar = polyArea(q); if (ar > ba) { ba = ar; bq = q; } }
+    if (!bq) continue;
+    const fill = bestArea / ba;      // a real page fills its own 4-corner shape almost completely
+    const score = Math.min(fill, 1 / fill) * (sep > 20 ? 1 : 0.5);
+    if (!best || score > best.score) best = { score, q: bq };
   }
   const full = [[0, 0], [it.w, 0], [it.w, it.h], [0, it.h]];
-  const frac = bestArea / (W * H);
-  if (bestLab < 0 || frac < 0.12 || frac > 0.97) { const m = 0.04; return { found: false, quad: [[it.w * m, it.h * m], [it.w * (1 - m), it.h * m], [it.w * (1 - m), it.h * (1 - m)], [it.w * m, it.h * (1 - m)]] }; }
-  let tl, tr, br, bl, a = Infinity, b = -Infinity, c = -Infinity, e = Infinity;
-  for (let i = 0; i < W * H; i++) { if (lab[i] !== bestLab) continue; const x = i % W, y = (i / W) | 0; const s1 = x + y, s2 = x - y; if (s1 < a) { a = s1; tl = [x, y]; } if (s1 > b) { b = s1; br = [x, y]; } if (s2 > c) { c = s2; tr = [x, y]; } if (s2 < e) { e = s2; bl = [x, y]; } }
-  const q = [tl, tr, br, bl].map(([x, y]) => [clamp((x + 0.5) / k, 0, it.w), clamp((y + 0.5) / k, 0, it.h)]);
-  if (polyArea(q) < 0.1 * it.w * it.h) return { found: false, quad: full };
+  if (!best || best.score < 0.82) { const m = 0.04; return { found: false, quad: [[it.w * m, it.h * m], [it.w * (1 - m), it.h * m], [it.w * (1 - m), it.h * (1 - m)], [it.w * m, it.h * (1 - m)]] }; }
+  const q = best.q.map(([x, y]) => [clamp(x / k, 0, it.w), clamp(y / k, 0, it.h)]);
+  if (polyArea(q) < 0.08 * it.w * it.h) return { found: false, quad: full };
   return { found: true, quad: q };
+}
+function orderQuad(pts) {   // clockwise from top-left
+  const cx = pts.reduce((s, p) => s + p[0], 0) / 4, cy = pts.reduce((s, p) => s + p[1], 0) / 4;
+  const o = pts.slice().sort((a, b) => Math.atan2(a[1] - cy, a[0] - cx) - Math.atan2(b[1] - cy, b[0] - cx));
+  let s = 0; for (let i = 1; i < 4; i++) if (o[i][0] + o[i][1] < o[s][0] + o[s][1]) s = i;
+  return [o[s], o[(s + 1) % 4], o[(s + 2) % 4], o[(s + 3) % 4]];
 }
 function polyArea(q) { let s = 0; for (let i = 0; i < 4; i++) { const [x1, y1] = q[i], [x2, y2] = q[(i + 1) % 4]; s += x1 * y2 - x2 * y1; } return Math.abs(s) / 2; }
 
@@ -1690,36 +1724,16 @@ function processScan(it, maxSide) {
   return cv;
 }
 function pct(hist, total, p) { let a = 0; for (let i = 0; i < 256; i++) { a += hist[i]; if (a >= total * p) return i; } return 255; }
-function evenLight(a, W, H) {   // divides out uneven lighting/shadows using a blurred copy of the page
-  const n = W * H, g = new Float32Array(n); for (let i = 0; i < n; i++) g[i] = a[4 * i] * 0.299 + a[4 * i + 1] * 0.587 + a[4 * i + 2] * 0.114;
-  // background estimate = local mean of the brighter pixels (text is ignored)
-  const I = new Float64Array((W + 1) * (H + 1)), C = new Uint32Array((W + 1) * (H + 1));
-  const hs = new Array(256).fill(0); for (const v of g) hs[v | 0]++; const cut = pct(hs, n, 0.25);
-  for (let y = 0; y < H; y++) { let rs = 0, rc = 0; for (let x = 0; x < W; x++) { const v = g[y * W + x]; if (v >= cut) { rs += v; rc++; } const o = (y + 1) * (W + 1) + x + 1, u = y * (W + 1) + x + 1; I[o] = I[u] + rs; C[o] = C[u] + rc; } }
-  const r = Math.max(10, Math.round(Math.max(W, H) / 14));
-  for (let y = 0; y < H; y++) { const y0 = Math.max(0, y - r), y1 = Math.min(H, y + r + 1); for (let x = 0; x < W; x++) { const x0 = Math.max(0, x - r), x1 = Math.min(W, x + r + 1);
-    const A = y1 * (W + 1) + x1, B = y0 * (W + 1) + x1, D = y1 * (W + 1) + x0, E = y0 * (W + 1) + x0; const cnt = C[A] - C[B] - C[D] + C[E];
-    const bg = cnt ? (I[A] - I[B] - I[D] + I[E]) / cnt : 200; const k = Math.min(3, 235 / Math.max(bg, 35)); const i = 4 * (y * W + x);
-    a[i] = a[i] * k; a[i + 1] = a[i + 1] * k; a[i + 2] = a[i + 2] * k; } }
-}
-function cleanUp(img, f, con, bri) {
-  const a = img.data, n = img.width * img.height, W = img.width, H = img.height;
-  if (f === 'enhance' || f === 'gray') evenLight(a, W, H);
-  if (f === 'enhance') {  // white-balance to the paper and stretch each channel
-    const luts = [];
-    for (let c = 0; c < 3; c++) { const hs = new Array(256).fill(0); for (let i = 0; i < n; i++) hs[a[4 * i + c]]++; const lo = pct(hs, n, 0.01), hi = Math.max(lo + 30, pct(hs, n, 0.96)); luts.push(Uint8ClampedArray.from({ length: 256 }, (_, v) => (v - lo) * 255 / (hi - lo))); }
-    for (let i = 0; i < n; i++) for (let c = 0; c < 3; c++) a[4 * i + c] = luts[c][a[4 * i + c]];
-  } else if (f === 'gray' || f === 'bw') {
-    const g = new Uint8ClampedArray(n); for (let i = 0; i < n; i++) g[i] = a[4 * i] * 0.299 + a[4 * i + 1] * 0.587 + a[4 * i + 2] * 0.114;
-    if (f === 'gray') { const hs = new Array(256).fill(0); for (const v of g) hs[v]++; const lo = pct(hs, n, 0.01), hi = Math.max(lo + 30, pct(hs, n, 0.96)); for (let i = 0; i < n; i++) g[i] = (g[i] - lo) * 255 / (hi - lo); }
-    else { // adaptive threshold: compares each pixel with its surroundings, so shadows don't turn black
-      const I = new Uint32Array((W + 1) * (H + 1));
-      for (let y = 0; y < H; y++) { let row = 0; for (let x = 0; x < W; x++) { row += g[y * W + x]; I[(y + 1) * (W + 1) + x + 1] = I[y * (W + 1) + x + 1] + row; } }
-      const r = Math.max(8, Math.round(Math.max(W, H) / 32)); const o = new Uint8ClampedArray(n);
-      for (let y = 0; y < H; y++) { const y0 = Math.max(0, y - r), y1 = Math.min(H, y + r + 1); for (let x = 0; x < W; x++) { const x0 = Math.max(0, x - r), x1 = Math.min(W, x + r + 1); const s = I[y1 * (W + 1) + x1] - I[y0 * (W + 1) + x1] - I[y1 * (W + 1) + x0] + I[y0 * (W + 1) + x0]; const m = s / ((x1 - x0) * (y1 - y0)); const tv = g[y * W + x] / (m * 0.86 + 1); o[y * W + x] = tv >= 1 ? 255 : tv < 0.78 ? 0 : (tv - 0.78) / 0.22 * 255; } }
-      g.set(o);
+function cleanUp(img, f, con, bri) {   // whole-page adjustments only, so nothing patchy can appear
+  const a = img.data, n = img.width * img.height;
+  if (f === 'gray' || f === 'bw') {
+    let lut = null;
+    if (f === 'bw') {   // grayscale, levels set from this page, then a steep contrast curve
+      const hs = new Array(256).fill(0); for (let i = 0; i < n; i++) hs[(a[4 * i] * 0.299 + a[4 * i + 1] * 0.587 + a[4 * i + 2] * 0.114) | 0]++;
+      const lo = pct(hs, n, 0.02), hi = Math.max(lo + 40, pct(hs, n, 0.80));
+      lut = Uint8ClampedArray.from({ length: 256 }, (_, v) => { const t = clamp((v - lo) / (hi - lo), 0, 1); return clamp((t - 0.5) * 2.4 + 0.62, 0, 1) * 255; });
     }
-    for (let i = 0; i < n; i++) a[4 * i] = a[4 * i + 1] = a[4 * i + 2] = g[i];
+    for (let i = 0; i < n; i++) { const g = a[4 * i] * 0.299 + a[4 * i + 1] * 0.587 + a[4 * i + 2] * 0.114; const v = lut ? lut[g | 0] : g; a[4 * i] = a[4 * i + 1] = a[4 * i + 2] = v; }
   }
   if (con || bri) { const C = con * 2.2, fct = (259 * (C + 255)) / (255 * (259 - C)), B = bri * 1.6; const lut = Uint8ClampedArray.from({ length: 256 }, (_, v) => fct * (v - 128) + 128 + B); for (let i = 0; i < n; i++) { a[4 * i] = lut[a[4 * i]]; a[4 * i + 1] = lut[a[4 * i + 1]]; a[4 * i + 2] = lut[a[4 * i + 2]]; } }
 }
@@ -1730,7 +1744,7 @@ let scFit = { k: 1, x: 0, y: 0 };
 function scRender() {
   const it = SC.items[SC.cur]; const has = !!it;
   $('scEmpty').classList.toggle('hide', has); $('scImg').classList.toggle('hide', !has); $('scSvg').classList.toggle('hide', !has || SC.mode !== 'corners');
-  $('scTitle').textContent = has ? `Page ${SC.cur + 1} of ${SC.items.length}` : 'Scan';
+  $('scTitle').textContent = SC.replace ? 'Edit scan' : has ? `Page ${SC.cur + 1} of ${SC.items.length}` : 'Scan';
   $('scMake').disabled = !has; $('scCtl').style.display = has ? '' : 'none';
   $('scan').querySelectorAll('[data-sc=corners],[data-sc=result]').forEach(b => b.classList.toggle('on', b.dataset.sc === SC.mode));
   if (has) {
@@ -1791,7 +1805,6 @@ $('scStrip').addEventListener('click', e => { const b = e.target.closest('.st');
 for (const [id, key, lab] of [['scCon', 'con', 'scConV'], ['scBri', 'bri', 'scBriV']]) {
   let t; $(id).addEventListener('input', () => {
     const it = SC.items[SC.cur]; if (!it) return; it[key] = +$(id).value; $(lab).textContent = it[key]; it.prev = null;
-    LS.set('scanLook', { filter: it.filter, con: it.con, bri: it.bri });
     clearTimeout(t); t = setTimeout(() => { if (SC.mode !== 'result') SC.mode = 'result'; const u = scPreview(it); scShow(u, null); $('scan').querySelectorAll('[data-sc=corners],[data-sc=result]').forEach(b => b.classList.toggle('on', b.dataset.sc === SC.mode)); $('scSvg').classList.add('hide'); scStrip(); }, 160);
   });
 }
@@ -1810,7 +1823,7 @@ async function openCam() {
     const caps = CAM.track.getCapabilities ? CAM.track.getCapabilities() : {};
     $('scTorch').classList.toggle('hide', !caps.torch); CAM.torch = false; $('scTorch').classList.remove('on');
     try { if (caps.focusMode && caps.focusMode.includes('continuous')) await CAM.track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch {}
-    clearInterval(CAM.timer); CAM.timer = setInterval(camOutline, 350);
+    clearInterval(CAM.timer); CAM.timer = null;   // no live outline: corners are pinned after the photos
   } catch (e) {
     console.warn(e); closeCam();
     toast(e && e.name === 'NotAllowedError' ? 'Camera access was turned off — opening the photo camera instead' : 'Couldn’t start the camera — opening the photo camera instead', 4000);
@@ -1829,7 +1842,11 @@ function camRect() { // where the video is drawn (object-fit: contain)
 function camOutline() {
   const v = $('scVideo'); const R = camRect(); const sv = $('scCamSvg'); if (!R || CAM.busy) return;
   Object.assign(sv.style, { left: R.x + 'px', top: R.y + 'px', width: R.w + 'px', height: R.h + 'px' }); sv.setAttribute('viewBox', `0 0 ${R.vw} ${R.vh}`);
-  let r; try { r = findPage(v, R.vw, R.vh, 220); } catch { return; }
+  let r; try { r = findPage(v, R.vw, R.vh, 240); } catch { return; }
+  // steady the outline: needs two finds in a row, and eases toward the new corners
+  if (r.found) { CAM.hits = (CAM.hits || 0) + 1; if (CAM.sq) { const jump = Math.max(...r.quad.map((p, i) => Math.hypot(p[0] - CAM.sq[i][0], p[1] - CAM.sq[i][1]))) / Math.max(R.vw, R.vh); CAM.sq = jump > 0.15 ? r.quad : CAM.sq.map((p, i) => [p[0] * 0.5 + r.quad[i][0] * 0.5, p[1] * 0.5 + r.quad[i][1] * 0.5]); } else CAM.sq = r.quad; }
+  else { CAM.hits = 0; CAM.sq = null; }
+  r = { found: CAM.hits >= 2 && !!CAM.sq, quad: CAM.sq || r.quad };
   $('scCamHint').textContent = r.found ? 'Page found — tap the button' : 'Hold steady over the page and tap the button';
   sv.innerHTML = r.found ? `<polygon points="${r.quad.map(p => p.join(',')).join(' ')}" fill="rgba(242,163,58,.18)" stroke="#f2a33a" stroke-width="${4 * R.vw / R.w}" stroke-linejoin="round"/>` : '';
 }
@@ -1845,12 +1862,12 @@ $('scShutter').onclick = async () => {
   try {
     const cv = document.createElement('canvas'); cv.width = v.videoWidth; cv.height = v.videoHeight; cv.getContext('2d').drawImage(v, 0, 0);
     const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.93)); cv.width = 0;
-    const it = await scLoad(blob); it.quad = detectQuad(it); SC.items.push(it); camCount();
+    const it = await scLoad(blob); it.quad = insetQuad(it); SC.items.push(it); camCount();
   } catch (e) { toast('Couldn’t take that photo: ' + errMsg(e)); }
   finally { CAM.busy = false; }
 };
 $('scTorch').onclick = async () => { if (!CAM.track) return; CAM.torch = !CAM.torch; try { await CAM.track.applyConstraints({ advanced: [{ torch: CAM.torch }] }); $('scTorch').classList.toggle('on', CAM.torch); } catch { CAM.torch = false; toast('Flashlight isn’t available'); } };
-$('scCamDone').onclick = $('scLast').onclick = () => { const n = SC.items.length - CAM.n0; closeCam(); if (n > 0) { SC.cur = CAM.n0; SC.mode = 'corners'; toast(`${n} page${n > 1 ? 's' : ''} added — check the corners on each`); } scRender(); };
+$('scCamDone').onclick = $('scLast').onclick = () => { const n = SC.items.length - CAM.n0; closeCam(); if (n > 0) { SC.cur = CAM.n0; SC.mode = 'corners'; toast(`${n} page${n > 1 ? 's' : ''} — drag the 4 pins to each page’s corners`); } scRender(); };
 $('scCamX').onclick = async () => {
   const n = SC.items.length - CAM.n0;
   if (n > 0 && !await ask('Discard photos?', `Discard the ${n} photo${n > 1 ? 's' : ''} you just took?`, 'Discard', true)) return;
@@ -1860,6 +1877,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && CAM
 
 const PAPER = { letter: [612, 792, 'Letter (8.5 × 11 in)'], a4: [595.28, 841.89, 'A4'], fit: [0, 0, 'Fit to photo'] };
 $('scMake').onclick = () => {
+  if (SC.replace) return scSaveEdit();
   const size = LS.get('scanSize', 'letter'); const isNew = SC.insertAt == null;
   const b = openSheet(isNew ? 'Make PDF' : 'Add pages', `${isNew ? `<label class="lab">Name</label><input class="field" id="smName" value="${esc('Scan ' + new Date().toLocaleDateString())}">` : ''}
     <label class="lab">Page size</label><div class="row" id="smSize">${Object.entries(PAPER).map(([k, v]) => `<button class="chip${k === size ? ' on' : ''}" data-s="${k}">${v[2]}</button>`).join('')}</div>
@@ -1875,7 +1893,8 @@ $('scMake').onclick = () => {
         busy(`Finishing page ${n + 1} of ${SC.items.length}…`); await new Promise(r => setTimeout(r, 20));
         const cv = processScan(it, 2200); const id = uid();
         imgs[id] = { data: cv.toDataURL('image/jpeg', it.filter === 'bw' ? 0.9 : 0.85), w: cv.width, h: cv.height };
-        pages.push(scanPage(id, cv.width, cv.height, sz)); cv.width = 0;
+        const src = it.origId || uid(); if (!it.origId) imgs[src] = { data: await blobToData(it.blob), w: it.w, h: it.h, orig: true };
+        pages.push(scanPage(id, cv.width, cv.height, sz, scanMeta(it, src, sz))); cv.width = 0;
       }
       await closeScan(true);
       if (isNew) { await closeDoc(); S.images = imgs; S.doc = blankDoc(name); S.pages = pages; await afterOpen(true); }
@@ -1889,12 +1908,48 @@ $('scMake').onclick = () => {
     finally { busy(); }
   };
 };
-function scanPage(id, w, h, size) {
-  if (size === 'fit') { const pw = 612, ph = Math.round(612 * h / w); const p = blankPage(pw, ph); p.annots.push({ id: uid(), t: 'img', x: 0, y: 0, w: pw, h: ph, im: id }); return p; }
+function scanPage(id, w, h, size, scan) {
+  if (size === 'fit') { const pw = 612, ph = Math.round(612 * h / w); const p = blankPage(pw, ph); p.annots.push({ id: uid(), t: 'img', x: 0, y: 0, w: pw, h: ph, im: id, scan }); return p; }
   let [pw, ph] = PAPER[size]; if (w > h) [pw, ph] = [ph, pw];
   const m = 18, k = Math.min((pw - 2 * m) / w, (ph - 2 * m) / h), iw = w * k, ih = h * k;
-  const p = blankPage(pw, ph); p.annots.push({ id: uid(), t: 'img', x: (pw - iw) / 2, y: (ph - ih) / 2, w: iw, h: ih, im: id }); return p;
+  const p = blankPage(pw, ph); p.annots.push({ id: uid(), t: 'img', x: (pw - iw) / 2, y: (ph - ih) / 2, w: iw, h: ih, im: id, scan }); return p;
 }
+const scanMeta = (it, src, size) => ({ src, quad: it.quad.map(q => q.map(v => +v.toFixed(1))), rot: it.rot, filter: it.filter, con: it.con, bri: it.bri, size });
+const blobToData = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
+
+/* --- re-edit a saved scan from its original photo --- */
+function scannedOnPage(p) { return p && p.annots.find(a => a.t === 'img' && a.scan && S.images[a.scan.src]); }
+async function editScan(p, a) {
+  commitEdit(); const sc = a.scan, o = S.images[sc.src]; if (!o) return toast('The original photo for this page isn’t available');
+  busy('Opening original photo…');
+  try {
+    const img = new Image(); img.src = o.data; await img.decode();
+    const it = { id: uid(), url: o.data, img, w: img.naturalWidth, h: img.naturalHeight, rot: sc.rot || 0, filter: sc.filter || 'none', con: sc.con || 0, bri: sc.bri || 0, prev: null, origId: sc.src, quad: sc.quad.map(q => q.slice()) };
+    SC.items = [it]; SC.cur = 0; SC.insertAt = null; SC.replace = { pid: p.id, aid: a.id, size: sc.size || 'letter' }; SC.mode = 'corners';
+    $('scan').classList.remove('hide'); $('scan').classList.add('replacing'); $('scMake').textContent = 'Save'; scRender();
+  } catch (e) { toast('Couldn’t open the original photo: ' + errMsg(e)); }
+  finally { busy(); }
+}
+function scSaveEdit() {
+  const r = SC.replace, it = SC.items[0]; let sz = r.size;
+  const b = openSheet('Save page', `<label class="lab">Page size</label><div class="row" id="smSize">${Object.entries(PAPER).map(([k, v]) => `<button class="chip${k === sz ? ' on' : ''}" data-s="${k}">${v[2]}</button>`).join('')}</div>
+    <p class="note">Markup you added on this page stays where it is.</p><div class="row" style="justify-content:flex-end"><button class="btn pri" id="smGo">Save page</button></div>`);
+  b.querySelector('#smSize').onclick = e => { const c = e.target.closest('[data-s]'); if (!c) return; sz = c.dataset.s; b.querySelectorAll('#smSize .chip').forEach(x => x.classList.toggle('on', x === c)); };
+  b.querySelector('#smGo').onclick = async () => {
+    closeSheet(); busy('Saving page…'); await new Promise(res => setTimeout(res, 20));
+    try {
+      const p = pageById(r.pid), a = p && p.annots.find(x => x.id === r.aid); if (!a) throw new Error('That page is no longer in this PDF.');
+      const cv = processScan(it, 2200); const id = uid();
+      S.images[id] = { data: cv.toDataURL('image/jpeg', it.filter === 'bw' ? 0.9 : 0.85), w: cv.width, h: cv.height };
+      const np = scanPage(id, cv.width, cv.height, sz, scanMeta(it, it.origId, sz)); cv.width = 0; const na = np.annots[0];
+      snap(); Object.assign(p, { w: np.w, h: np.h, vt: np.vt }); Object.assign(a, { x: na.x, y: na.y, w: na.w, h: na.h, im: na.im, scan: na.scan });
+      await closeScan(true); S.sel = null; hideSelbar(); thumbCache.clear();
+      buildPages(); if (S.fit) S.zoom = fitZoom(); layout(); onScroll(); changed(); toast('Page updated');
+    } catch (e) { console.error(e); toast(errMsg(e), 4500); }
+    finally { busy(); }
+  };
+}
+
 
 /* ---------- keyboard ---------- */
 document.addEventListener('keydown', e => {
